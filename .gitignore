@@ -31,5 +31,7 @@ data/context/
 *.enc
 # Local session memory (never uploaded)
 .convolog.md
+# Saved llama-server command (local only)
+data/.llama_cmd
 # Video frame data (too large for git)
 data/videos/
