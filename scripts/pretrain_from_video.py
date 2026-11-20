@@ -250,7 +250,10 @@ def main():
     ap.add_argument("--save-dir", type=str, default=None, help="Model save dir (default data/models)")
     ap.add_argument("--stage", choices=["a", "b", "both"], default="both", help="Which stage(s) to run")
     args = ap.parse_args()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if not torch.cuda.is_available():
+        log.error("CUDA not available — refusing to train on CPU. Free VRAM (e.g. pause llama-server) and retry.")
+        sys.exit(1)
+    device = "cuda"
     log.info("Device: %s", device)
     if device == "cuda":
         props = torch.cuda.get_device_properties(0)
