@@ -43,6 +43,7 @@ def search_youtube(query: str, max_results: int = 30) -> list[dict]:
         ytdlp = _sh.which("yt-dlp") or "yt-dlp"
     cmd = [
         ytdlp, "--js-runtimes", "deno:/home/benny/.deno/bin/deno",
+        "--cookies-from-browser", "firefox",
         "--flat-playlist",
         "--print", "%(id)s|%(title)s|%(duration)s|%(view_count)s",
         f"ytsearch{max_results}:{query}",
@@ -123,6 +124,7 @@ def process_video(
     fmt = "133/160/worstvideo"
     cmd = [
         ytdlp, "--js-runtimes", "deno:/home/benny/.deno/bin/deno",
+        "--cookies-from-browser", "firefox",
         "--no-playlist",
         "-f", fmt,
         "-o", out_tmpl,

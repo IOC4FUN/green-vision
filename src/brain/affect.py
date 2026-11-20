@@ -167,4 +167,3 @@ class AffectModule:
             "risk_multiplier": self.risk_multiplier(),
             "urgency": self.urgency(),
         }
-"""
