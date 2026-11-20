@@ -1,0 +1,52 @@
+# brain/ — decision core
+The "mind" of the agent: neural policy + rule-based common sense + goal planning + episodic memory.
+## Files
+- `network.py` — CNN(ResNet-style) + Transformer policy/value net.
+  - `ACTION_NAMES` list = the discrete action space (31 actions incl. noop, navigate_*, apply_policy, declare_war, use_console, save/load, speed switches).
+  - Constants: `STATE_DIM=128`, `SEQ_LEN=8`, `HIDDEN_DIM=256`, `NHEAD=8`, `NUM_TRANSFORMER_LAYERS=4`.
+  - Architecture: CNNEncoder(64→128→256ch) → Fusion(concat+FC+LayerNorm+GELU) → TransformerEncoder(4L,8h) → PolicyHead(256→128→31) + ValueHead(256→128→1).
+  - Forward returns `(policy_logits, value)`.
+- `ppo_agent.py` — PPO with **true multi-step GAE** (λ=0.95), LR warmup→cosine decay, entropy annealing, rolling frame history, **Prioritized Experience Replay** (SumTree, α=0.6, β-anneal 0.4→1.0), **KL early-stopping** (target 0.02, stop at ×3).
+  - Buffers:
+    - `RolloutBuffer` (ordered deque, capacity 512) – on-policy window for GAE computation.
+    - `PERBuffer` (SumTree-backed, capacity 100k) – off-policy prioritized augmentation; priority = |TD error|^α.
+    - `FrameHistory` – keeps last SEQ_LEN frames so the transformer sees real context (no zero-padding after warm-up).
+  - Scheduler: `WarmupCosineScheduler` (linear warmup 200 steps → cosine to min_lr over 200k steps).
+  - Entropy: linearly anneals from 0.05 → 0.005 over 100k steps.
+  - API: `observe(frame,state_vec)` → (logits,value); `select_action(logits)`; `store_transition(...)`; `should_update()`; `update()` → metrics dict incl. `lr`, `ent_coef`, `kl_div`, `per_size`.
+  - `PPOConfig`: lr 3e-4, min_lr 3e-5, gamma .99, gae_lambda .95, clip .2, value_coef .5, update_every_steps 8, batch 64, rollout_cap 512, per_alpha 0.6, kl_target 0.02, device cuda.
+- `planner.py` — sits ABOVE the raw NN. Goal management with **multi-step decomposition**, **dynamic goal generation** from crisis detection, and **failure detection & replanning**.
+  - `Goal` carries an ordered list of `SubAction`s (action_idx + description + max_wait_s + attempts).
+  - `GOAL_TEMPLATES` dict maps named intents to concrete sub-action sequences:
+    stabilize_economy, boost_approval, prepare_military, pass_legislation, seek_peace_treaty,
+    reduce_inflation, cut_deficit, boost_military_loyalty, diplomatic_reset.
+  - `CRISIS_TO_GOAL` maps detected crises → template + priority for auto-generation.
+  - Failure tracking: each SubAction has a timeout; if expected effect not observed after `max_wait_s`, `record_failure()` increments counter. After `max_failures_before_abandon` (default 6) consecutive failures the goal is abandoned and `_replan_after_abandonment()` creates an alternative-template goal.
+  - Decision priority in `decide()`: safety override > goal sub-action > KB override (low conf) > NN suggestion.
+  - Entry point: `decide(nn_action, nn_confidence, game_state, knowledge_hints)` → (final_action_idx, Thought).
+  - Episodic memory analogies retrieved per-decision when `self.episodic_mem` is set (cosine-similarity top-2).
+  - Dashboard data via `get_dashboard_data()`.
+- `episodic_memory.py` — Bounded episodic store with similarity-based retrieval.
+  - `Episode` = list of `StepRecord`(state_vec, action, reward, thought) + metadata (outcome, tags, scenario, peak_crisis).
+  - `Outcome` enum: SUCCESS | STALL | FAILURE (auto-classified from total_reward thresholds ±1.0).
+  - `EpisodicMemory(capacity=500)` – LRU deque; API:
+    - `begin_episode(scenario)`, `record_step(state, action_idx, name, reward, thought)`, `end_episode(outcome?, tags?)`.
+    - `retrieve_similar(state_vec, k)` → [(episode, cosine_score)] sorted desc.
+    - `retrieve_by_outcome(Outcome, k)`, `retrieve_failures(k)`.
+    - `summary()` → stats dict for dashboard.
+    - `save_to_file(path)` → JSONL append.
+- `reflection.py` — Post-episode self-analysis module.
+  - `ReflectionModule(memory: EpisodicMemory)` – called after each episode ends.
+  - Analyzes the just-completed episode: identifies which actions correlated with positive/negative reward deltas, detects repeated failure patterns, and writes a structured `Reflection` record back into the episode's tags/metadata.
+  - Feeds curriculum signals: tracks per-scenario success rate to flag weak areas.
+  - `get_curriculum_hints()` → list of scenario names needing more practice.
+- `game_knowledge.py` — rule-based priors / "common sense": `detect_crisis(state)`, `evaluate_action(action_idx, state, recent_actions)`, `get_priority_actions(state)`. This is where hand-tuned strategy lives; keep it data-driven so it's easy to extend with new rules.
+  - Also contains: `STATE_THRESHOLDS`, `CONSOLE_COMMANDS` (58-cmd reference), `COUNTRY_TIERS`, `seed_base_knowledge(kb)`.
+## Dev notes
+- Action index ↔ name mapping is shared via `network.ACTION_NAMES`; never hardcode indices elsewhere. Use the `A_*` constants in `game_knowledge.py` for readability.
+- If you add an action, append to `ACTION_NAMES` AND wire a handler in `agent._execute_action`'s actions_map.
+- Crisis/safety logic should stay deterministic + cheap (runs every decision @ 2 Hz).
+- To add a new goal template: add an entry to `GOAL_TEMPLATES` in planner.py. The planner will auto-decompose when `add_goal(..., template="name")` is called.
+- GAE requires sequential data – the rollout buffer preserves order; don't shuffle within a batch window.
+- Episodic memory is wired into the agent loop: `begin_episode` at game start, `record_step` each decision, `end_episode` on game-over/shutdown. The planner reads from it via `self.episodic_mem`.
+- Reflection runs after `end_episode`; its output enriches episode tags and feeds curriculum hints to the dashboard.
