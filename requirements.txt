@@ -26,6 +26,9 @@ PyYAML>=6.0
 python-dotenv>=1.0.0
 rich>=13.0.0            # pretty terminal output
 
+# RL environment (Gymnasium API)
+gymnasium>=0.29.0
+
 # Web dashboard
 flask>=3.0.0
 

@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-21 — feat(gym): Gymnasium-compatible environment wrapper (`src/gym_env/`) with live & simulated modes; README updated
+- 2026-11-21 — fix: PPOAgent accepts optional network param + pre-commit secret-scan hook (`d9c5fd5d75e930c5cd6a41ebc063a79140c08ba8`)
 - 2026-11-21 — fix: PPOAgent accepts optional `network` param; train_autonomous passes `config=cfg, network=net`
 - 2026-11-21 — feat(security): pre-commit hook scans staged files for secrets before push
 - 2026-11-21 — fix: total_mem → total_memory for torch >= 2.x CUDA device props (`e9462cd0da029774117c902c64890d97afff8f9a`)

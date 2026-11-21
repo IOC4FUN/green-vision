@@ -270,7 +270,8 @@ class GreenVisionAgent:
                 raw = fobj.raw          # H×W×3 uint8 (BGR from mss)
                 resized = fobj.resized  # 224×224×3 RGB for the CNN
                 if resized is None:
-                    resized = raw
+                    import cv2
+                    resized = cv2.resize(raw, (224, 224))[:, :, ::-1]  # BGR→RGB + resize
 
                 ocr_text = ""
                 if self.config.get("use_ocr", True) and self.ocr.available:
@@ -372,6 +373,7 @@ class GreenVisionAgent:
         self._running = False
         # End episodic episode + reflect
         if self._episode_active:
+            ep = None
             try:
                 ep = self.episodic_mem.end_episode()
                 if ep is not None:
