@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Green Vision – AI Dashboard</title>
+<link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+<header>
+  <h1>🌿 Green Vision</h1>
+  <span id="status-badge" class="badge offline">OFFLINE</span>
+  <span id="clock"></span>
+</header>
+
+<main>
+  <!-- Top row: scenario + decisions -->
+  <section class="row top-row">
+    <div class="card stat-card">
+      <label>Scenario</label>
+      <div id="scenario" class="stat-value">—</div>
+    </div>
+    <div class="card stat-card">
+      <label>Total Decisions</label>
+      <div id="decisions" class="stat-value">0</div>
+    </div>
+    <div class="card stat-card">
+      <label>Episode Active</label>
+      <div id="episode" class="stat-value">no</div>
+    </div>
+    <div class="card stat-card">
+      <label>No-Op Streak</label>
+      <div id="noop-streak" class="stat-value warn">0</div>
+    </div>
+    <div class="card stat-card">
+      <label>Console Enabled</label>
+      <div id="console" class="stat-value">off</div>
+    </div>
+  </section>
+
+  <!-- GPU / Health row -->
+  <section class="row gpu-row">
+    <div class="card">
+      <h3>GPU (RTX 4090)</h3>
+      <div class="gpu-grid">
+        <span>VRAM: <b id="vram-used">—</b> / <b id="vram-total">—</b> MiB</span>
+        <span>Clock: <b id="clock-mhz">—</b> MHz</span>
+        <span>Power: <b id="power-w">—</b> W</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Goals + Thoughts side by side -->
+  <section class="row mid-row">
+    <div class="card goals-panel">
+      <h3>Active Goals</h3>
+      <ul id="goals-list"><li class="muted">No active goals</li></ul>
+    </div>
+    <div class="card thoughts-panel">
+      <h3>Recent Thoughts</h3>
+      <div id="thoughts-feed" class="feed"></div>
+    </div>
+  </section>
+
+  <!-- Action history -->
+  <section class="row bottom-row">
+    <div class="card actions-panel">
+      <h3>Action History (last 30)</h3>
+      <table id="actions-table">
+        <thead><tr><th>Time</th><th>Action</th><th>Detail</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Polling every 2 s · Green Vision v1.0</span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

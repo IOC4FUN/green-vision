@@ -26,5 +26,8 @@ PyYAML>=6.0
 python-dotenv>=1.0.0
 rich>=13.0.0            # pretty terminal output
 
+# Web dashboard
+flask>=3.0.0
+
 # Optional: faster OCR alternative
 # easyocr>=1.7.1        # uncomment if tesseract quality insufficient

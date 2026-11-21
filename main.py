@@ -75,6 +75,8 @@ def main() -> int:
     parser.add_argument("--config", default=str(ROOT / "config" / "settings.yaml"), help="Config file path")
     parser.add_argument("--no-launch", action="store_true", help="Don't auto-launch the game")
     parser.add_argument("--dashboard", action="store_true", help="Show dashboard only (no input injection)")
+    parser.add_argument("--web-dashboard", action="store_true", help="Start live web dashboard (Flask) on --port")
+    parser.add_argument("--port", type=int, default=8090, help="Port for web dashboard (default 8090)")
     parser.add_argument("--train-steps", type=int, default=0, help="Exit after N decision steps")
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     args = parser.parse_args()
@@ -94,6 +96,17 @@ def main() -> int:
 
     if args.dashboard:
         return _run_dashboard(agent)
+
+    # ── Web dashboard (Flask) ─────────────────────────────────────────────
+    if args.web_dashboard:
+        import threading
+        from src.dashboard import create_app
+        flask_app = create_app(agent=agent)
+        def _serve():
+            flask_app.run(host="127.0.0.1", port=args.port, debug=False, use_reloader=False)
+        t = threading.Thread(target=_serve, daemon=True, name="web-dashboard")
+        t.start()
+        logger.info("Web dashboard live at http://127.0.0.1:%d", args.port)
 
     max_steps = args.train_steps if args.train_steps > 0 else None
     if max_steps is not None:
