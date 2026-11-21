@@ -1,0 +1,14 @@
+[Unit]
+Description=Green Vision AI agent for Geoplanetical
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/benny/green-vision
+ExecStart=/home/benny/green-vision/scripts/launch.sh --with-game
+Restart=on-failure
+RestartSec=15
+Environment=GREEN_VISION_PORT=8090
+
+[Install]
+WantedBy=default.target
