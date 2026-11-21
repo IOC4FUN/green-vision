@@ -298,12 +298,16 @@ class PPOAgent:
     Full PPO training + inference loop with GAE, PER, KL early-stopping,
     LR scheduling, entropy annealing, and rolling frame history.
     """
-    def __init__(self, config: PPOConfig | None = None, model_path: str | Path | None = None):
+    def __init__(self, config: PPOConfig | None = None, model_path: str | Path | None = None,
+                 network: Optional[GreenVisionNetwork] = None):
         self.cfg = config or PPOConfig()
         self.device = torch.device(self.cfg.device if torch.cuda.is_available() else "cpu")
         logger.info("PPO device: %s", self.device)
 
-        self.net = GreenVisionNetwork().to(self.device)
+        if network is not None:
+            self.net = network.to(self.device)
+        else:
+            self.net = GreenVisionNetwork().to(self.device)
         self.optimizer = torch.optim.AdamW(
             self.net.parameters(), lr=self.cfg.learning_rate, weight_decay=1e-5
         )

@@ -125,7 +125,7 @@ def ppo_warmup_steps(num_updates=200) -> dict:
     else:
         log.warning("No SFT checkpoint found – using random init")
     cfg = PPOConfig(update_every_steps=4, batch_size=32, rollout_capacity=128, replay_capacity=10_000)
-    agent = PPOAgent(net, cfg)
+    agent = PPOAgent(config=cfg, network=net)
     t0 = time.perf_counter()
     total_reward = 0.0
     for step in range(num_updates * 4):  # 4 env steps per update
