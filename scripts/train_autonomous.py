@@ -17,7 +17,6 @@ import argparse
 import json
 import logging
 import os
-import signal
 import shutil
 import subprocess
 import sys
@@ -63,79 +62,6 @@ def check_resources(min_free_gb=20.0, min_gpu_mem_mb=8192) -> bool:
     except Exception as e:
         log.warning("Could not check GPU (continuing anyway): %s", e)
     return True
-# ── Local LLM server management ───────────────────────────────────────────────
-def _llama_pid() -> int | None:
-    """Return PID of running llama-server, or None."""
-    try:
-        out = subprocess.check_output(["pgrep", "-f", "llama-server"], text=True).strip()
-        pids = [int(p) for p in out.split("\n") if p.strip()]
-        return pids[0] if pids else None
-    except subprocess.CalledProcessError:
-        return None
-
-
-def stop_llama_server(timeout_s: int = 15) -> bool:
-    """Gracefully stop llama-server to free VRAM. Saves its cmdline for later restart."""
-    pid = _llama_pid()
-    if pid is None:
-        log.debug("llama-server not running – nothing to stop.")
-        return False
-    # Save the full command line so we can restart identically
-    cmd_path = PROJECT_ROOT / "data" / ".llama_cmd"
-    try:
-        with open(f"/proc/{pid}/cmdline", "rb") as f:
-            raw = f.read().replace(b"\x00", b" ").decode().strip()
-        cmd_path.parent.mkdir(parents=True, exist_ok=True)
-        cmd_path.write_text(raw)
-        log.info("Saved llama-server command: %s", raw[:120])
-    except Exception:
-        pass
-    log.info("Stopping llama-server (PID %d) to free VRAM…", pid)
-    try:
-        os.kill(pid, signal.SIGTERM)
-        for _ in range(timeout_s):
-            time.sleep(1)
-            if _llama_pid() is None:
-                log.info("llama-server stopped gracefully.")
-                return True
-        log.warning("llama-server did not exit in %ds – sending SIGKILL.", timeout_s)
-        os.kill(pid, signal.SIGKILL)
-        time.sleep(2)
-        return True
-    except ProcessLookupError:
-        return True
-    except Exception as e:
-        log.error("Failed to stop llama-server: %s", e)
-        return False
-
-
-def restart_llama_server(wait_s: int = 5) -> bool:
-    """Restart llama-server using the saved command line."""
-    if _llama_pid() is not None:
-        log.debug("llama-server already running – skipping restart.")
-        return True
-    cmd_file = PROJECT_ROOT / "data" / ".llama_cmd"
-    if not cmd_file.exists():
-        log.info("No saved llama-server command found. Start it manually when ready.")
-        return False
-    raw_cmd = cmd_file.read_text().strip()
-    log.info("Restarting llama-server: %s…", raw_cmd[:100])
-    try:
-        subprocess.Popen(
-            ["bash", "-c", raw_cmd],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        time.sleep(wait_s)
-        if _llama_pid() is not None:
-            log.info("llama-server restarted (PID %d).", _llama_pid())
-        else:
-            log.warning("llama-server process started but not detected yet – may need more time.")
-        return True
-    except Exception as e:
-        log.error("Failed to restart llama-server: %s", e)
-        return False
 
 
 # ── Step 1: Gather videos ────────────────────────────────────────────────────
@@ -274,12 +200,9 @@ def main():
             log.info("Completed %d cycles. Done.", args.cycles)
             break
         log.info("\n══════ CYCLE %d (t+%.1fh) ══════", cycle, elapsed_total / 3600)
-        # Stop local LLM server to free VRAM for training
-        stop_llama_server()
-        # Resource check (now with freed VRAM)
+        # Resource check
         if not check_resources():
-            log.error("Insufficient resources even after stopping llama-server. Waiting 30 min…")
-            restart_llama_server()
+            log.error("Insufficient resources. Waiting 30 min…")
             time.sleep(1800)
             continue
         # Step 1: Gather
@@ -292,8 +215,6 @@ def main():
         save_checkpoint(cycle, gather_res, pretrain_res, ppo_res)
         # Step 5: Log
         update_convolog(cycle, gather_res, pretrain_res, ppo_res)
-        # Restart local LLM server now that GPU work is done
-        restart_llama_server()
         # Brief cooldown between cycles (shortened to keep throughput high)
         log.info("Cycle %d complete. Cooling down 20 s...", cycle)
         time.sleep(20)

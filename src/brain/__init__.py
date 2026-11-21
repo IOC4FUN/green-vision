@@ -8,4 +8,5 @@ from .reflection import ReflectionModule, Reflection
 from .curriculum import CurriculumManager, ScenarioConfig
 from .curiosity import CuriosityModule
 from .world_model import WorldModel
+from .rssm_world_model import RSSMWorldModel
 from .affect import AffectModule

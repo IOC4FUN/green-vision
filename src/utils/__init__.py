@@ -13,7 +13,7 @@ from .reward_shaper import RewardWeights, compute_reward
 from .journal import DecisionJournal
 from .checkpoints import CheckpointManager
 from .health import HealthWatchdog, HealthStatus
-
+from .llm_manager import LLMManager, LLMConfig
 __all__ = [
     "STATE_DIM", "SEGMENTS", "MEMORY_KEYS",
     "build_vector", "validate", "describe",
@@ -21,4 +21,5 @@ __all__ = [
     "DecisionJournal",
     "CheckpointManager",
     "HealthWatchdog", "HealthStatus",
+    "LLMManager", "LLMConfig",
 ]

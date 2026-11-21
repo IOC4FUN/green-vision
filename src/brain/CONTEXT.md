@@ -42,6 +42,21 @@ The "mind" of the agent: neural policy + rule-based common sense + goal planning
   - `get_curriculum_hints()` → list of scenario names needing more practice.
 - `game_knowledge.py` — rule-based priors / "common sense": `detect_crisis(state)`, `evaluate_action(action_idx, state, recent_actions)`, `get_priority_actions(state)`. This is where hand-tuned strategy lives; keep it data-driven so it's easy to extend with new rules.
   - Also contains: `STATE_THRESHOLDS`, `CONSOLE_COMMANDS` (58-cmd reference), `COUNTRY_TIERS`, `seed_base_knowledge(kb)`.
+- `rssm_world_model.py` — DreamerV3-style Recurrent State-Space Model (primary world model).
+  - Separates deterministic state h_t (GRU hidden, dim=512) from stochastic latent z_t (diagonal Gaussian, dim=64).
+  - Components: `_GRUCore`, `_PosteriorHead`, `_PriorHead`, `_DecoderHead`.
+  - Utilities: `symlog` / `symexp` (bounded normalisation), `two_hot` action encoding, free-bits KL (default 1.0 nat/element).
+  - API:
+    - `RSSMWorldModel(state_dim=128, num_actions=31, device="cuda")`
+    - `.train_step(obs, action_idx, next_obs, reward, done)` → loss dict
+    - `.rollout(current_state, actions, horizon=8)` → predicted states/rewards
+    - `.confidence(current_state)` → float in [0,1] (1 − normalised σ²)
+  - Loss: λ_recon·MSE + λ_KL·free_bits_KL + λ_rwd·Huber + λ_cont·BCE.
+  - Exported via `brain/__init__.py` as `RSSMWorldModel`; consumed by `agent.py`.
+- `world_model.py` — Simple feedforward transition net; fallback when RSSM is unavailable or during early training before the GRU has seen enough data.
+- `affect.py` — AffectModule: tracks emotional/valence state from recent rewards and crisis signals; feeds a scalar into the planner's decision weighting.
+- `curiosity.py` — Intrinsic-curiosity module (prediction-error based); provides exploration bonus when extrinsic reward is flat.
+- `curriculum.py` — Curriculum scheduler: adjusts scenario difficulty / goal-template selection based on reflection hints and per-scenario success rates.
 ## Dev notes
 - Action index ↔ name mapping is shared via `network.ACTION_NAMES`; never hardcode indices elsewhere. Use the `A_*` constants in `game_knowledge.py` for readability.
 - If you add an action, append to `ACTION_NAMES` AND wire a handler in `agent._execute_action`'s actions_map.

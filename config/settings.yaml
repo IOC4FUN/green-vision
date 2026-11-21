@@ -60,6 +60,15 @@ input_backend: xdotool       # xdotool | uinput
 focus_before_input: true     # bring game window to front before each action
 console_enabled: false       # let the AI open the cheat console (backtick); OFF by default, toggle in dashboard
 idle_watchdog_s: 30          # seconds of no meaningful action before the watchdog forces a corrective move
+# LLM swap (auto-swap to light model during GPU-heavy training)
+llm:
+  auto_swap: false
+  port: 19091
+  heavy_model: "/home/benny/.atomic-agent/models/models/qwen-3.5-4b/Qwen3.5-4B.gguf"
+  light_model: null
+  llama_bin: "/home/benny/.atomic-agent/models/core/versions/0.18.6/data/llamacpp/backends/b10298-2.1.0/linux-x64-cuda-13.3/build/bin/llama-server"
+  health_timeout_s: 60
+  stop_timeout_s: 15
 # Video ingestion / pretraining
 video_data_dir: data/videos
 rssm_deter: 512              # RSSM deterministic hidden dim
