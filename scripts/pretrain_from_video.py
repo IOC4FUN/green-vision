@@ -261,7 +261,7 @@ def main():
     log.info("Device: %s", device)
     if device == "cuda":
         props = torch.cuda.get_device_properties(0)
-        log.info("GPU: %s (%d MB VRAM)", props.name, props.total_mem // 1024**2)
+        log.info("GPU: %s (%d MB VRAM)", props.name, props.total_memory // 1024**2)
     # Discover clip dirs
     data_dir = Path(args.data_dir) if args.data_dir else PROJECT_ROOT / "data" / "videos"
     clip_dirs = sorted([d for d in data_dir.iterdir() if d.is_dir() and (d / "manifest.json").exists()])
