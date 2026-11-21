@@ -6,6 +6,8 @@ Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
 
+- 2026-11-21 — chore: update changelog with CI commit entry (`821aa36ba7171c576a66332cbdb3b388e5848613`)
+
 - 2026-11-21 — chore(ci): add gymnasium dep + dedupe changelog entry (`3d8b849708041643269172ad3c4ec43822229e11`)
 - 2026-11-21 — feat(gym): Gymnasium-compatible environment wrapper (`src/gym_env/`) with live & simulated modes; README + CHANGELOG updated
 - 2026-11-21 — fix: PPOAgent accepts optional network param + pre-commit secret-scan hook (`d9c5fd5d75e930c5cd6a41ebc063a79140c08ba8`)
