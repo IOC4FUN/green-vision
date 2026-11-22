@@ -67,19 +67,31 @@ def init_tools():
 # Format: (video_id, title_hint, expected_duration_s, priority)
 # Priority 1 = must-have (full gameplay), 2 = useful (guides/tutorials), 3 = bonus
 VIDEO_TARGETS = [
-    # Full gameplay sessions (longest first — most frames per download)
+    # ── MENU & START COVERAGE (user priority: start menu → game entry → all screens) ──
+    ("jsEUZN6hge4", "EVERY Menu Explained - Taking Over Germany LP1 Tutorial", 2478, 1),
+    ("p8WPz-i1Oqo", "How to play and get off to a good start - Tutorial EN", 4851, 1),
+    ("gJQvleUeX-s", "Geoplanetical full gameplay from start", 1550, 1),
+    # ── LONG SESSIONS (most frames per download) ──
+    ("3zWSgTAX4D4", "Can I eliminate Americas debt - Geoplanetical Live 8hr", 28832, 1),
+    ("qHZDa8DfVy4", "GEOPLANETICAL Pre-Release Livestream 3.5hr", 13165, 1),
     ("xMCdl87-Eno", "GEOPLANETICAL UNITED STATES GAMEPLAY", 8526, 1),
     ("mcdVoApNMjs", "Geoplanetical Ep 2", 8138, 1),
-    ("OPo16hyYCOg", "Is This The Superpower Game We've Been Waiting For", 5582, 1),
+    ("OPo16hyYCOg", "Is This The Superpower Game Weve Been Waiting For", 5582, 1),
     ("DpDdoNyUYLc", "GEOPLANETICAL GAMEPLAY BRAZIL", 5496, 1),
-    ("g0jc84L8jSM", "Geoplanetical (unlabeled full session)", 4597, 1),
-    # Medium-length episodes / streams
+    ("g0jc84L8jSM", "Geoplanetical unlabeled full session", 4597, 1),
+    # ── MEDIUM EPISODES (variety of scenarios & decisions) ──
+    ("5yi8eihAf2Q", "Geoplanetical S1Ep006", 3017, 1),
     ("JLsY2ge65_s", "Geoplanetical S1Ep005", 2197, 1),
+    ("MIDsBijjx3I", "Geoplanetical S1Ep012", 1918, 1),
     ("jhe_Xp4oiSI", "Geoplanetical S1Ep1", 1819, 1),
-    ("H1DEd_Oem78", "This Game Makes HoI4 Look SIMPLE", 1113, 1),
+    ("7xWoSQuFsAA", "Geoplanetical S1Ep008", 1746, 1),
+    ("HG4pbEEUgVw", "Geoplanetical S1Ep009", 1507, 1),
+    # ── SHORT / SPECIFIC (military, UI demos) ──
+    ("OR9MwWdaDjY", "Military Invasion and Annexation Showcase", 878, 2),
+    ("H1DEd_Oem78", "This Game Makes HoI4 Look SIMPLE", 1113, 2),
     ("oRIZU3L1JJU", "This New Map Game Lets You Do Almost ANYTHING", 1090, 2),
-    # Tutorials / guides (cover specific menus in detail)
-    ("fNT1PrarfMY", "No-BS Beginner's Guide", 540, 2),
+    # ── TUTORIALS (menu walkthroughs) ──
+    ("fNT1PrarfMY", "No-BS Beginners Guide", 540, 2),
 ]
 
 # ── Download + extract one video ─────────────────────────────────────────────
