@@ -1,0 +1,10 @@
+# Pretraining
+*.pt
+data/models/
+
+# Manifests (generated)
+**/manifest.json
+
+# Temporary test files
+scripts/tmp/*
+!scripts/tmp/.gitkeep
