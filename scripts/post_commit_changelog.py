@@ -23,6 +23,11 @@ def main() -> int:
     try:
         short_hash = _git("rev-parse", "--short", "HEAD")
         subject = _git("log", "-1", "--pretty=%s")
+        # Skip if this commit only touched CHANGELOG.md (breaks the self-referential loop)
+        changed = _git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")
+        files_changed = [f for f in changed.splitlines() if f.strip()]
+        if files_changed and all(f == "CHANGELOG.md" for f in files_changed):
+            return 0
     except Exception as exc:
         print(f"[post-commit-changelog] git error: {exc}", file=sys.stderr)
         return 0  # non-fatal
