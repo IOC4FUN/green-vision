@@ -194,7 +194,7 @@ All tunables live in `config/settings.yaml`. Key sections:
 | **Brain / Training** | `device` (cuda/cpu), `learning_rate`, `update_every_steps` (8), `model_path` |
 | **PPO extras** | `min_lr`, `warmup_steps`, `total_training_steps`, `entropy_coef_start/end`, `rollout_capacity` |
 | **Reward shaping** | `reward_weights.*` — per-segment coefficients (approval, budget, stability, war_risk, etc.) |
-| **Curiosity & Exploration** | `coeff` (0.5 default), `clip_max` (1.0) for intrinsic reward scaling; wired into PPO loss via `src/utils/reward_shaper.py` |
+| **Curiosity & Exploration** | `coeff` (0.5 default), `clip_max` (1.0) for intrinsic reward scaling; wired into PPO loss via `src/utils/reward_shaper.py`. ICM-style forward-dynamics model predicts next-state embedding; prediction error becomes exploration bonus (~50k params). |
 | **Input** | `input_backend` (pyautogui), `focus_before_input`, `console_enabled`, `idle_watchdog_s` |
 | **Video / Pretrain** | `video_data_dir`, `rssm_deter/stoch`, `wm_lr`, `keep_source_video`, `min_free_gb`, `jpeg_quality` |
 | **Memory** | `episodic_memory_path`, `knowledge_db`, `knowledge_vectors` |

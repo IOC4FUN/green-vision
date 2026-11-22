@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-22 — docs(brain): expand brain modules table + add curiosity & curriculum details (`c68ce74`)
 - 2026-11-22 — feat(tracker): add AI improvement progress tracker with pipeline milestones, risks & metrics (`68f8608`)
 - 2026-11-22 — docs: expand troubleshooting into categorized tables + add Known Limitations & Caveats section (`7ffc9dc`)
 - 2026-11-22 — feat(data): expand video targets to 20 — added menu/start coverage tutorials + long livestreams for maximum frame diversity (`1e01e9d`)
