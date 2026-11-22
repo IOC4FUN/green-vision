@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-22 — chore(pretrain): add manifest generator + gitignore for training artifacts (`44d6f5165`)
 - 2026-11-22 — chore: add session_boot.py — single source of truth for agent re-orientation (`26121896b`)
 - 2026-11-22 — feat(brain): add curiosity module, curriculum manager & pretraining launchers (`c72931bff`)
 - 2026-11-22 — docs(brain): fully document Curiosity Module & Curriculum Manager in README (`022d256`)
