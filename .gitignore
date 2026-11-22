@@ -1,35 +1,30 @@
 # Python
+*.pyc
 __pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-
-# Models & data
-data/models/*.pt
-data/knowledge/*.sqlite
-data/replays/*
-!data/**/.gitkeep
-
-# Logs
-logs/*
-!logs/.gitkeep
-
-# Env (contains API keys)
+*.pyo
 .env
+.venv/
+.venv-cuda/
 
 # IDE
 .vscode/
 .idea/
 *.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Models (optional - uncomment if you want to exclude)
+# models/
+# checkpoints/
 
 # OS
 .DS_Store
 Thumbs.db
-# Encrypted local-only context (key lives outside repo at ~/.config/green-vision/)
-data/context/
-*.enc
-# Local session memory (never uploaded)
-.convolog.md
-# Video frame data (too large for git)
+
+# Green Vision specific
+session_boot.py.bak
+CHANGELOG.md.bak
 data/videos/

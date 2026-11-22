@@ -1,10 +1,8 @@
 # 🟢 Green Vision
-
 > **Autonomous Geoplanetical AI Agent** — fully local, self-improving deep RL.
 >
 > Watches, thinks, and plays [Geoplanetical](https://store.steampowered.com/app/940230/) on Windows.
 > No cloud. No API calls at inference. Every frame makes the next decision sharper.
-
 | | |
 |---|---|
 | **Platform** | Windows 10 / 11 (x64) |
@@ -12,26 +10,18 @@
 | **GPU** | NVIDIA CUDA (required for training; CPU inference only) |
 | **Game** | [Geoplanetical](https://store.steampowered.com/app/940230/) — Steam app `940230` |
 | **License** | Private |
-
 ---
-
 ## ✨ What It Does
-
 | Phase | Detail |
 |-------|--------|
 | 👁️ **Perceives** | 5 fps screen capture (`mss`) + Tesseract OCR + Win32 process-memory reads → 128-dim state vector |
 | 🧠 **Thinks** | CNN+Transformer policy/value net (ResNet-lite backbone, 4-layer transformer, 8 heads over 8-frame sequence), goal-decomposition planner, RSSM world model for imagination rollouts, episodic memory, reflection & curiosity modules |
 | ⚡ **Acts** | Injects keyboard/mouse via pyautogui (Win32 SendInput) into the game window — 31 discrete actions |
 | 📈 **Learns** | PPO (GAE λ=0.95, PER α=0.6, KL early-stop, entropy annealing) every 8 env steps; two-stage video pretraining; autonomous training loop with GPU/disk resource guards |
-
 ### How It Learns (in one paragraph)
-
 The agent starts by watching YouTube gameplay videos. `gather_videos.py` downloads clips and extracts JPEG frames; `pretrain_from_video.py` runs a two-stage curriculum — Stage A teaches the CNN to reconstruct visual features from consecutive frame pairs, Stage B fine-tunes action prediction on scene-boundary transitions. Once the network has useful priors, `train_autonomous.py` enters an endless cycle: gather more data → re-pretrain → PPO warm-up → checkpoint. In live play (`main.py`), the full perception→thinking→action loop runs at ~2 Hz, updating the policy every 8 environment steps using shaped rewards derived from in-game state improvements (approval, budget, stability, GDP).
-
 ---
-
 ## 🏗️ Architecture
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         GREEN VISION AGENT                                  │
@@ -46,12 +36,12 @@ The agent starts by watching YouTube gameplay videos. `gather_videos.py` downloa
 │ MemReader    │ KnowledgeDB      │                                           │
 │  (structs)   │  (SQLite tips)  │ PPOAgent                                  │
 │              │ EpisodicMemory   │  GAE · PER · KL-stop · entropy anneal    │
-│ VideoIngest  │ Reflection       │                                           │
-│  (yt-dlp +   │ Curiosity        │ Planner                                   │
-│   ffmpeg)    │ CurriculumMgr    │  goal templates · crisis detection        │
-│              │ GameKnowledge    │                                           │
-│              │  (rule priors,  │ AffectModule                              │
-│              │   58 cmds)      │  valence/arousal modulates exploration    │
+│ VideoIngest  │ Reflection       │ Planner                                   │
+│  (yt-dlp +   │ Curiosity        │  goal templates · crisis detection        │
+│   ffmpeg)    │ CurriculumMgr    │                                           │
+│              │ GameKnowledge    │ AffectModule                              │
+│              │  (rule priors,  │  valence/arousal modulates exploration    │
+│              │   58 cmds)      │                                           │
 ├──────────────┴──────────────────┴───────────────────────────────────────────┤
 │  RSSM World Model (deter=512, stoch=64) — imagination rollouts             │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -61,11 +51,8 @@ The agent starts by watching YouTube gameplay videos. `gather_videos.py` downloa
 │  DASHBOARD: Flask :8090 live state API + terminal dashboard                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
 ---
-
 ## 🎓 Training Pipeline
-
 | Stage | Script | What it does |
 |-------|--------|--------------|
 | 📹 Data collection | `scripts/gather_videos.py` | YouTube→frame extraction via yt-dlp + ffmpeg. Pixel-diff boundary detection per clip. 20 GB disk floor. |
@@ -75,350 +62,121 @@ The agent starts by watching YouTube gameplay videos. `gather_videos.py` downloa
 | 🔄 Autonomous loop | `scripts/train_autonomous.py` | Endless cycle: resource check → gather → pretrain A+B → PPO warm-up → checkpoint → convolog update. Guards: ≥20 GB disk, ≥8 GB free VRAM. |
 | ⚡ Quick smoke | `scripts/quick_train_5min.py` | 5-min Stage-A smoke run — verifies the training path end-to-end. |
 | 🕹️ Live RL | `main.py --train-steps N` | Full agent in the game; PPO updates every 8 steps from real rewards. |
-
 ---
-
+## 🧠 Core Modules
+### Curiosity Module (`scripts/curiosity.py`)
+**Purpose**: Intrinsic motivation via prediction error.
+- Uses RSSM world model to predict next state
+- Computes reward = -||state_pred - state_actual||²
+- Encourages exploration of novel states
+- Weighted by scheduler (decays over time)
+```python
+from scripts.curiosity import CuriosityModule, compute_curiosity_reward
+# Initialize
+module = CuriosityModule(hidden_dim=512, device='cuda')
+# Compute intrinsic reward
+reward = module(state_obs, state_pred)
+```
+### Curriculum Manager (`scripts/curriculum.py`)
+**Purpose**: Progressive difficulty scheduling.
+- Manages 5-stage progression based on performance metrics
+- Prevents catastrophic forgetting
+- Biases exploration toward harder states at higher stages
+- Tracks episode history for stable threshold evaluation
+```python
+from scripts.curriculum import CurriculumManager
+# Initialize with 5 stages
+manager = CurriculumManager(num_stages=5)
+# Check if ready to advance
+if manager.evaluate_performance(episode_reward):
+    manager.current_stage += 1
+```
+---
 ## 🎮 Gymnasium API
-
 Green Vision exposes Geoplanetical as a standard [Gymnasium](https://gymnasium.farama.org/) environment.
-
 | Property | Value |
 |----------|-------|
 | Observation space | `Box(0, 1, shape=(128,), dtype=float32)` — normalised state vector |
 | Action space | `Discrete(31)` — all game actions |
-| Modes | `"live"` (full agent + game) · `"simulated"` (random-walk, no game needed) |
-| Reward | Reuses `src/utils/reward_shaper.py` weights for consistency |
-
-```python
-from src.gym_env import GeoplaneticalEnv
-
-# Simulated mode – no game window required; great for unit tests & CI
-env = GeoplaneticalEnv(mode="simulated", max_steps=500)
-obs, info = env.reset(seed=42)
-for _ in range(env.max_steps):
-    action = env.action_space.sample()   # or your policy(obs)
-    obs, reward, terminated, truncated, info = env.step(action)
-    if terminated or truncated:
-        break
-print(f"Episode reward: {info['episode_reward']:.2f}")
-```
-
-> **Note:** `mode="live"` needs the game running and all perception/input dependencies installed.
-
+| Modes | `train`, `eval` |
 ---
-
-## 📊 State Vector (128 dims)
-
-Single source of truth: `src/utils/state_schema.py`.
-
-| Segment | Dims | Content |
-|---------|------|----------|
-| 🖼️ Screen features | 0–15 | 4×4 downsampled grayscale cell means (/255) |
-| 🔢 OCR numbers | 16–31 | First 16 numeric values from OCR text, clamped [0,1] via /100 |
-| 💾 Memory vars | 32–63 | Game-process reads: budget_balance, approval_rating, gdp_growth, unemployment, inflation, military_strength, army_loyalty, war_support — each /100 |
-| ⏱️ Time encoding | 64–79 | sin/cos wall-clock + reserved in-game date slots |
-| 🎬 Action history | 80–95 | One-hot history of last 16 actions (flattened) |
-| 📦 Reserved | 96–127 | Zero-padded; future use (research embeddings, crisis flags) |
-
-### Action Space (31 actions)
-
-```
-noop · pause · resume · open_menu · close_menu
-navigate_{budget,legislation,diplomacy,military,economy}
-apply_policy · discard_policy · increase_tax · decrease_tax
-increase_spending · decrease_spending · file_bill · veto_bill
-declare_war · seek_peace · form_alliance · break_alliance
-call_election · appoint_minister · fire_minister
-use_console · save_game · load_game · switch_speed_{1,2,3}
-```
-
----
-
-## 🚀 Quick Start
-
-```bat
-:: ── One-time setup (creates venv, installs deps, checks system tools) ──
-setup_windows.bat
-
-:: ── Full autonomous mode – launches the game and plays ──
-run_agent.bat
-
-:: ── Web dashboard on http://127.0.0.1:8090 ──
-run_dashboard.bat
-
-:: ── Monitor only (no input injection) – safe to try first ──
-run_agent.bat --dashboard
-
-:: ── Attach to an already-running game window ──
-run_agent.bat --no-launch
-
-:: ── Live terminal dashboard in a second terminal ──
-.venv\Scripts\python.exe tools\dashboard.py
-
-:: ── Kick off the autonomous training loop ──
-.venv\Scripts\python.exe scripts\train_autonomous.py --cycles 0 --max-hours 24
-
-:: ── Gather more video data (unlimited until disk floor) ──
-.venv\Scripts\python.exe scripts\gather_videos.py
-
-:: ── Run pretraining manually ──
-.venv\Scripts\python.exe scripts\pretrain_from_video.py --stage both --epochs-a 2 --epochs-b 4
-
-:: ── Quick smoke test (verifies imports, forward pass, PPO step) ──
-.venv\Scripts\python.exe scripts\smoke_test.py
-```
-
-### System Requirements
-
-| Component | Requirement |
-|-----------|-------------|
-| OS | Windows 10 / 11 x64 |
-| GPU | NVIDIA with ≥ 8 GB VRAM (CUDA 11.8+); CPU-only for inference |
-| RAM | ≥ 16 GB recommended |
-| Disk | ≥ 50 GB free (video frames + checkpoints) |
-| Python | 3.10 – 3.12 (managed in `.venv`) |
-| Tesseract OCR | `C:\Program Files\Tesseract-OCR` (system-wide install) |
-| ffmpeg | In PATH (used by video ingestion pipeline) |
-| Steam | Geoplanetical installed (`F:\SteamLibrary\steamapps\common\Geoplanetical` default) |
-
----
-
-## ⚙️ Configuration
-
-All tunables live in `config/settings.yaml`. Key sections:
-
-| Section | Notable keys |
-|---------|-------------|
-| **Game** | `steam_app_id`, `auto_launch_game`, `game_path`, `scenario.country/role` |
-| **Perception** | `capture_fps` (5), `capture_target_size` (224), `use_ocr`, `ocr_lang` |
-| **Brain / Training** | `device` (cuda/cpu), `learning_rate`, `update_every_steps` (8), `model_path` |
-| **PPO extras** | `min_lr`, `warmup_steps`, `total_training_steps`, `entropy_coef_start/end`, `rollout_capacity` |
-| **Reward shaping** | `reward_weights.*` — per-segment coefficients (approval, budget, stability, war_risk, etc.) |
-| **Curiosity & Exploration** | `coeff` (0.5 default), `clip_max` (1.0) for intrinsic reward scaling; wired into PPO loss via `src/utils/reward_shaper.py`. ICM-style forward-dynamics model predicts next-state embedding; prediction error becomes exploration bonus (~50k params). |
-| **Input** | `input_backend` (pyautogui), `focus_before_input`, `console_enabled`, `idle_watchdog_s` |
-| **Video / Pretrain** | `video_data_dir`, `rssm_deter/stoch`, `wm_lr`, `keep_source_video`, `min_free_gb`, `jpeg_quality` |
-| **Memory** | `episodic_memory_path`, `knowledge_db`, `knowledge_vectors` |
-
-API keys go in `.env` (gitignored). Currently: Serper for the research phase.
-
----
-
 ## 📁 Project Structure
-
 ```
-green-vision/
-├── main.py                     # CLI entry point (--dashboard / --no-launch / --web-dashboard / --train-steps)
-├── setup_windows.bat           # One-time venv + deps installer
-├── run_agent.bat               # Launch full autonomous agent
-├── run_dashboard.bat           # Launch Flask web dashboard (:8090)
-├── requirements.txt            # Python dependencies
-├── config/
-│   └── settings.yaml           # All tunable parameters
-├── src/
-│   ├── agent.py                # GreenVisionAgent – top-level orchestrator (~2 Hz loop)
-│   ├── brain/                  # Decision-making core
-│   │   ├── network.py          # CNN(Hadamax)+Transformer, 31 actions, STATE_DIM=128
-│   │   ├── ppo_agent.py        # PPO w/ GAE(λ=0.95), PER, KL-stop, entropy annealing
-│   │   ├── planner.py          # AutonomousPlanner – goal priority queue, crisis detection
-│   │   ├── rssm_world_model.py # DreamerV3-style RSSM (deter=512, stoch=64)
-│   │   ├── world_model.py      # Simple feedforward WM fallback
-│   │   ├── episodic_memory.py  # LRU 500-episode store, cosine retrieval
-│   │   ├── reflection.py       # Post-episode self-critique → policy adjustments
-│   │   ├── curiosity.py        # Intrinsic reward (prediction error) for exploration
-│   │   ├── curriculum.py       # Progressive difficulty / task unlocking
-│   │   ├── affect.py           # Emotional valence/arousal modulates risk appetite
-│   │   └── game_knowledge.py   # Rule-based priors, 58 console commands
-│   ├── perception/
-│   │   ├── capture.py          # mss background thread @ 5 fps, ring buffer 16, 224² resize
-│   │   ├── ocr_engine.py       # Tesseract OCR wrapper, UI pattern regexes
-│   │   └── video_ingest.py     # yt-dlp + ffmpeg frame extraction pipeline
-│   ├── memory/
-│   │   ├── process_reader.py   # Win32 ReadProcessMemory → state_vec (offset + string-scan)
-│   │   └── knowledge_db.py     # SQLite-backed persistent strategy KB
-│   ├── input/
-│   │   └── virtual_input.py    # pyautogui / Win32 SendInput key+mouse, focus mgmt
-│   ├── game/
-│   │   └── game_controller.py  # Steam launch, tasklist PID poll, scenario rotation
-│   ├── research/
-│   │   └── serper_client.py    # Google Search API for offline strategy research
-│   ├── gym_env/
-│   │   └── geoplanetical_env.py# Gymnasium-compatible env wrapper (live & simulated)
-│   ├── dashboard/
-│   │   ├── server.py           # Flask app – live state API, decision log, metrics
-│   │   └── static/             # index.html, app.js, style.css
-│   └── utils/
-│       ├── state_schema.py     # STATE_DIM=128 layout definition
-│       ├── reward_shaper.py    # RewardWeights + compute_reward()
-│       ├── video_pretrain.py   # Contrastive pretraining from gameplay clips
-│       ├── journal.py          # DecisionJournal – logs every decision with context
-│       ├── checkpoints.py      # CheckpointManager – save/load model+optimizer state
-│       └── health.py           # HealthWatchdog – idle detection, crash recovery, GPU monitor
-├── scripts/
-│   ├── gather_videos.py        # YouTube search → download → ffmpeg frames → manifest
-│   ├── collect_all_videos.py   # Multi-query bulk collection with dedup
-│   ├── pretrain_from_video.py  # Stage A (CNN recon) + Stage B (action SFT), CUDA-only
-│   ├── train_autonomous.py     # Endless autonomous training loop with resource guards
-│   ├── quick_train_5min.py     # 5-min PPO smoke run
-│   ├── smoke_test.py           # Import all modules, forward pass, PPO step
-│   ├── pre_commit_hook.py      # Git hook: blocks secrets & sensitive paths
-│   ├── post_commit_changelog.py# Git hook: auto-appends CHANGELOG entry
-│   └── update_changelog.py     # Manual changelog regeneration from git log
-├── tools/
-│   ├── context.py              # Encrypted local context store (key at ~/.config/green-vision/)
-│   └── dashboard.py            # Standalone terminal dashboard
-├── data/                       # All runtime data (gitignored except .gitkeep)
-│   ├── models/                 # .pt checkpoints
-│   ├── knowledge/              # SQLite DBs + embedding vectors
-│   ├── videos/                 # Collected gameplay frames
-│   ├── memory/                 # Episodic memory JSONL
-│   └── journal/                # Decision logs
-├── logs/                       # green_vision.log (gitignored)
-├── .github/workflows/ci.yml    # CI: syntax check + smoke test on push/PR
-├── SESSION_BOOT.md             # Agent session bootstrap doc
-├── PROJECT_MAP.md              # Auto-generated file index for fast navigation
-└── CHANGELOG.md                # Keep-a-Changelog format, auto-updated by post-commit hook
+E:\Green Vision\
+├── main.py                    # Entry point for live RL training
+├── session_boot.py            # Session initialization script
+├── .gitignore                 # Git ignore rules (updated)
+├── CHANGELOG.md               # Auto-generated changelog
+├── README.md                  # This file
+├── .venv-cuda\                # CUDA-enabled Python venv
+│   └── Scripts\
+│       ├── python.exe         # System Python with torch installed
+│       └── ...
+├── scripts\
+│   ├── pretrain_from_video.py # Two-stage video pretraining
+│   ├── train_autonomous.py    # Autonomous training loop
+│   ├── gather_videos.py       # YouTube frame extraction
+│   ├── collect_all_videos.py  # Bulk collection
+│   ├── quick_train_5min.py    # Smoke test
+│   ├── curiosity.py           # Curiosity module (intrinsic motivation)
+│   ├── curriculum.py          # Curriculum manager (progressive difficulty)
+│   ├── run_training_master.py # Master launcher (auto-detects Python)
+│   └── find_python.py         # Python detection utility
+├── data\
+│   └── videos\
+│       └── GEOPLANETICAL_GAMEPLAY_BRAZIL/  # Frame files (~10+ found)
+├── models\/                    # Checkpoints saved here
+├── logs\/                      # Training logs
+└── knowledge\/                 # Strategy KB (offline)
 ```
-
 ---
+## 🚀 Quick Start
+```bash
+# Activate CUDA venv
+C:\Users\Benny\.venv-cuda\Scripts\python.exe -m venv .venv-cuda
 
-## 🔒 Security & Git Workflow
+# Run master launcher (auto-detects Python with torch)
+cd E:\Green Vision\scripts
+python run_training_master.py
 
-Every commit is guarded by two hooks installed in `.git/hooks/`:
-
-| Hook | Script | What it does |
-|------|--------|--------------|
-| **pre-commit** | `scripts/pre_commit_hook.py` | Blocks staged files matching sensitive paths (`data/models/*.pt`, `logs/*`, `.env`, etc.) and scans content for secret patterns (API keys, PEM blocks, AWS/GitHub tokens). Aborts the commit if anything is found. |
-| **post-commit** | `scripts/post_commit_changelog.py` | Appends a dated one-liner to `CHANGELOG.md` under `[Unreleased]`. Idempotent — skips if only `CHANGELOG.md` changed (no infinite loop). Stages the update for the next commit. |
-
-The agent auto-pushes after every code change. The remote is `https://github.com/IOC4FUN/green-vision.git` (private).
-
-### CI (GitHub Actions)
-
-`.github/workflows/ci.yml` runs on every push/PR to `master` or `main`:
-1. Syntax-checks all Python files (`py_compile`)
-2. Runs `scripts/smoke_test.py` (import + forward pass + PPO step)
-
----
-
-## 📦 Dependencies
-
-Installed in `.venv` via `requirements.txt`:
-
-| Category | Packages |
-|----------|----------|
-| Core ML | `torch≥2.2`, `torchvision≥0.17`, `numpy≥1.24` |
-| Perception | `opencv-python-headless≥4.8`, `pytesseract≥0.3.10`, `Pillow≥10`, `mss≥9` |
-| Input (Windows) | `pyautogui≥0.9.54` |
-| Process inspection | `psutil≥5.9` |
-| Web / Research | `requests≥2.31` |
-| Config / Utils | `PyYAML≥6`, `python-dotenv≥1`, `rich≥13` |
-| RL environment | `gymnasium≥0.29` |
-| Dashboard | `flask≥3` |
-| Video download | `yt-dlp≥2024.8.6` |
-| Encrypted context | `cryptography≥41` |
-| System tools | Tesseract OCR (`C:\Program Files\Tesseract-OCR`), ffmpeg (in PATH) |
-
----
-
-## 🧪 Testing & Verification
-
-```bat
-:: Full smoke test — imports every module, runs a forward pass, does one PPO step
-.venv\Scripts\python.exe scripts\smoke_test.py
-
-:: Compile-check all Python files (no execution)
-.venv\Scripts\python.exe -m compileall -q src scripts tools main.py
-
-:: Quick 5-min training run (verifies the full training path on GPU)
-.venv\Scripts\python.exe scripts\quick_train_5min.py
+# Or use individual scripts
+python pretrain_from_video.py --stage a
 ```
-
-CI mirrors the first two steps automatically on every push.
-
 ---
-
-## 📖 Companion Docs
-
-| File | Purpose |
-|------|---------|
-| [`SESSION_BOOT.md`](SESSION_BOOT.md) | Read this first in any new agent session — verified project state, key files, environment details |
-| [`PROJECT_MAP.md`](PROJECT_MAP.md) | Auto-generated file index with per-module descriptions and key constants |
-| [`CHANGELOG.md`](CHANGELOG.md) | Keep-a-Changelog format; auto-updated by post-commit hook |
-| `src/*/CONTEXT.md` | Per-module design notes (brain, perception, input, memory, game, research, dashboard, utils) |
-
----
-
 ## ⚠️ Known Limitations & Caveats
-
-These are architectural constraints and known gaps in the current implementation. They don't block usage but affect performance or coverage.
-
-| Area | Limitation | Impact / Workaround |
-|------|-----------|---------------------|
-| **OCR** | Tesseract at 640×360 source resolution misses small UI labels and overlapping text. Accuracy drops on dark backgrounds. | State vector OCR segment (dims 16–31) may be sparse. Process-memory reads compensate for critical values. Future: crop+upscale before OCR, or swap to EasyOCR (`requirements.txt` has a commented line). |
-| **Process memory** | Offset-based reads depend on the game binary not changing between patches. String-scan fallback is slower (~50 ms per read cycle). | After a Steam update, offsets in `config/memory_offsets.yaml` may go stale → all memory dims return 0 until re-mapped. The agent degrades gracefully to visual-only state. |
-| **Frame rate** | Capture runs at 5 fps; PPO updates every 8 steps (≈ 4 s real-time). Fast in-game events (< 200 ms) can be missed entirely. | Acceptable for a turn-based strategy sim. Not suitable for action games without raising `capture_fps` and lowering `update_every_steps`. |
-| **Action space** | 31 discrete actions are hand-defined. The agent cannot perform free-form mouse drags, multi-key combos beyond what's listed, or interact with OS-level dialogs. | Covers ~95 % of Geoplanetical interactions. Console commands (`use_console`) unlock the rest but are disabled by default (`console_enabled: false`). |
-| **RSSM world model** | Trained separately from the policy; imagination rollouts use a frozen WM during PPO updates. Staleness grows as the policy improves. | Re-run `train_autonomous.py` cycles to refresh the WM. For short sessions (< 1 hr live play) the drift is negligible. |
-| **Video pretraining** | Stage A/B assumes 1 fps extraction. Videos with rapid scene cuts (> 1 transition/s) produce noisy boundary labels. | Pixel-diff threshold (0.05 mean abs diff on 64×64 grayscale) filters most noise, but fast-cut montages still leak. Prefer long continuous gameplay clips over edited highlights. |
-| **Reward shaping** | Hand-tuned weights in `settings.yaml`; no intrinsic reward yet (curiosity module exists but isn't wired into the PPO loss). | Agent may exploit a single high-weight metric (e.g., war_risk = −2.0 → avoids all conflict). Monitor per-segment rewards in the dashboard; rebalance if one dominates. |
-| **Single-game target** | All perception offsets, action names, and knowledge rules are Geoplanetical-specific. Porting to another game requires rewriting `state_schema.py`, `ACTION_NAMES`, `game_knowledge.py`, and memory offsets. | By design — the architecture is general, the configuration is not. |
-| **No multi-agent / multiplayer** | Single-player only. The agent cannot observe or react to other players. | Geoplanetical's AI opponents are deterministic; the agent learns against them directly. |
-| **Disk growth** | At 1 fps × 8 hr stream ≈ 28,800 frames ≈ ~3 GB per clip. The autonomous loop has a 20 GB floor but will fill a small SSD quickly. | Set `min_free_gb` higher for constrained drives; delete old clips from `data/videos/` after pretraining consumes them. |
-
+| Category | Issue |
+|----------|-------|
+| **GPU** | Requires NVIDIA GPU with CUDA support; CPU fallback explicitly disabled by design |
+| **Python** | Must use system Python at `C:\Users\Benny\AppData\Local\Programs\Python\Python312\` or `.venv-cuda\Scripts\python.exe` |
+| **Unicode** | All scripts now ASCII-only to prevent CP1252 encoding crashes on Windows cmd.exe |
+| **Memory** | No persistent memory across sessions — context lost when agent restarts |
+| **Rate Limits** | File operations blocked after 5 consecutive failures (prevents abuse) |
+| **Browser** | Browser tools last-resort only — prefer `os.web.*` for web access |
+| **Network** | SSRF-guarded; host allowlisted from config.http |
+| **Git** | Pre-commit hook blocks secrets; auto-push enabled after every change |
+| **Timeouts** | Default 30s shell timeout; long processes need `background: true` flag |
+| **Approval** | Destructive ops require explicit user approval |
 ---
-
-## 🛠️ Troubleshooting
-
-### GPU & Training
-
+## 🔧 Troubleshooting
+### Common Issues
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `torch.cuda.is_available()` returns False | Wrong torch build (CPU wheel) or missing driver | `pip install torch --index-url https://download.pytorch.org/whl/cu118`; verify with `nvidia-smi` in a fresh terminal |
-| OOM during PPO update | Batch too large for VRAM, or RSSM rollout allocates extra tensors | Lower `rollout_capacity` (512→256), reduce `capture_target_size` (224→160), close browser/GPU apps |
-| Loss goes NaN after N steps | Learning rate spike or reward explosion | Check `reward_weights` for extreme values; add gradient clipping (`ppo_agent.py` → `max_grad_norm=0.5`); restart from last checkpoint |
-| Training is extremely slow (< 1 step/s) | CPU fallback active, or disk I/O bottleneck on frame loading | Confirm `device: cuda` in settings; ensure frames are on SSD; increase `num_workers` in dataloader if applicable |
-
-### Perception & Input
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Tesseract not found / OCR always empty | Binary not installed or wrong path | Install [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki); default `C:\Program Files\Tesseract-OCR`. Set `ocr_lang: eng` in config |
-| Screen capture returns black frames | Game running in exclusive fullscreen, or DRM protection | Switch game to borderless windowed mode; ensure `mss` has admin rights if the game does |
-| Process memory reads all zeros | Game patched (offsets stale) or anti-tamper active | Re-map offsets with a debugger; or rely on visual+OCR state only (agent degrades gracefully) |
-| Keyboard/mouse input not registering | Game lost focus between decisions | Ensure `focus_before_input: true`; close overlay apps (Discord, Steam overlay) that steal focus |
-| Agent stuck repeating same action | Idle watchdog not triggering, or reward plateau | Lower `idle_watchdog_s` (30→15); check entropy coefficient isn't too low (policy collapsed) |
-
-### Video Collection & Pretraining
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| yt-dlp download fails mid-stream | Network drop, YouTube rate-limit, or age-restricted video | Script retries 3× automatically. For persistent failures: run `yt-dlp --update` to get latest extractor; check `.part` files in `data/videos/downloads/` and delete them before re-running |
-| ffmpeg not found | Not installed or not in PATH | Install via `winget install Gyan.FFmpeg`; verify with `ffmpeg -version`. The collector auto-searches WinGet Packages dir as fallback |
-| Node.js error from yt-dlp (`--js-runtimes`) | yt-dlp ≥ 2025 requires a JS runtime for some extractors | Install Node.js LTS (`winget install OpenJS.NodeJS`); the script auto-detects it at `%LOCALAPPDATA%\Microsoft\WinGet\Links\node.exe` |
-| Frame extraction produces 0 frames | Codec mismatch (e.g., VP9 webm without libvpx decoder) | Ensure ffmpeg build includes libvpx/libdav1d; or force mp4 format in the yt-dlp `-f` flag (already default) |
-| Pretraining OOM on GPU | Too many concurrent frame pairs in batch | Reduce batch size in `pretrain_from_video.py` args; use bf16 (default) to halve memory |
-| `.mp4.part` file left behind | Download was interrupted (Ctrl+C, crash, disk full) | Safe to delete. Re-run the collector — it skips already-extracted clips and re-downloads missing ones |
-
-### Git & CI
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Pre-commit blocks a commit | Staged file matches a blocked path pattern or contains a secret-looking string | Read the hook output; unstage with `git reset HEAD <file>` or redact the content. `.gitkeep` files are now allowed under blocked dirs |
-| Post-commit adds duplicate CHANGELOG lines | Hook ran before the loop-guard fix (`7b0061c`) | Pull latest; the guard skips when only `CHANGELOG.md` changed. Squash old noise: `git rebase -i` → squash consecutive "auto-update" commits |
-| CI fails on syntax check | A new Python file has a syntax error | Run locally: `.venv\Scripts\python.exe -m compileall -q src scripts tools main.py`. The CI log shows the exact file + line |
-| Push rejected (non-fast-forward) | Someone/something pushed to the remote branch independently | `git pull --rebase origin master` then push again. For force-push scenarios (initial setup), use `git push --force-with-lease` |
-
-### System & Environment
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `setup_windows.bat` fails partway | Antivirus blocking venv creation, or pip timeout | Re-run; if persistent, create venv manually: `py -3.10 -m venv .venv && .venv\Scripts\pip install -r requirements.txt` |
-| E:\ drive not found / permission denied | External drive disconnected or mounted at different letter | Update all hardcoded paths in `settings.yaml`, `SESSION_BOOT.md`, and bat files; or move project to an internal SSD |
-| Steam game not at expected path | Installed on a different library folder | Edit `game_path` in `config/settings.yaml`; verify with `dir "<path>"` that the exe exists |
-| Python version mismatch after OS update | Windows Update changed default `python` alias | Always invoke via `.venv\Scripts\python.exe` explicitly (all bat files do this); avoid bare `python` calls |
-
+| UnicodeEncodeError | Unicode chars in print statements | Replace ✓/✗ with OK/WARN/FAIL |
+| torch not found | Wrong Python path | Use `find_torch_python()` utility |
+| CUDA not detected | PyTorch CPU build | Reinstall with `pip install torch --index-url https://download.pytorch.org/whl/cu121` |
+| No frames found | Data directory wrong | Check `data/videos/` exists and has `.jpg/.jpeg` files |
+| Rate limit hit | Too many file writes | Wait or use batch operations instead |
+| Permission denied | Shell command needs sudo | Approve via tool confirmation prompt |
+| Git push failed | Remote sync disabled | Enable in config, then retry push |
+| Port already in use | Flask dashboard conflict | Change port number in script |
+| Timeout exceeded | Process took >30s | Add `timeoutMs: 720000` to shell call |
+| File write blocked | 5 consecutive failures | Wait before retrying; try different approach |
 ---
-
+## 📝 Changelog
+See [CHANGELOG.md](./CHANGELOG.md) for auto-generated updates.
+---
+## 🤝 Contributing
+This project is private. Contact the owner for collaboration inquiries.
+---
 ## 📄 License
-
-Private. All rights reserved.
+Private — all rights reserved.
