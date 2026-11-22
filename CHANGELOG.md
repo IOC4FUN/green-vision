@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-22 — chore: auto-update changelog (`6c94e29`)
 - 2026-11-22 — chore: auto-update changelog after initial commit (`d9b0fae`)
 - 2026-11-22 — feat: Green Vision v0.1 — Windows-only AI game agent (PPO + RSSM + dashboard) (`02a7f2c`)
 
