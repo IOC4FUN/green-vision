@@ -1,10 +1,13 @@
-# Pretraining
+# Pretraining artifacts — exclude from tracking
 *.pt
 data/models/
 
-# Manifests (generated)
+# Manifests (auto-generated)
 **/manifest.json
 
 # Temporary test files
 scripts/tmp/*
 !scripts/tmp/.gitkeep
+
+# Auto-stage launcher
+scripts/auto_stage_b.py
