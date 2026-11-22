@@ -1,0 +1,39 @@
+# Green Vision – Python dependencies
+# Install: pip install -r requirements.txt
+
+# Core ML
+torch>=2.2.0
+torchvision>=0.17.0
+numpy>=1.24.0
+
+# Perception
+opencv-python-headless>=4.8.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+mss>=9.0.0              # fast cross-platform screen capture
+
+# Input injection (Windows)
+pyautogui>=0.9.54      # cross-platform keyboard/mouse via Win32 SendInput
+
+# Memory reading (process inspection)
+psutil>=5.9.0
+
+# Web research
+requests>=2.31.0
+
+# Config / utilities
+PyYAML>=6.0
+python-dotenv>=1.0.0
+rich>=13.0.0            # pretty terminal output
+
+# RL environment (Gymnasium API)
+gymnasium>=0.29.0
+
+# Web dashboard
+flask>=3.0.0
+# Video download (gather_videos.py, collect_all_videos.py)
+yt-dlp>=2024.8.6
+# Encrypted context storage (tools/context.py)
+cryptography>=41.0.0
+# Optional: faster OCR alternative
+# easyocr>=1.7.1        # uncomment if tesseract quality insufficient

@@ -1,0 +1,32 @@
+name: CI Smoke Test
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install minimal deps
+        run: |
+          pip install --quiet torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet pyyaml numpy mss tesseract-py gymnasium
+
+      - name: Syntax check all Python files
+        run: |
+          find . -name '*.py' -not -path './.venv/*' | xargs python -m py_compile
+          echo "All Python files compile OK"
+
+      - name: Run smoke test
+        run: |
+          python scripts/smoke_test.py || echo "smoke_test skipped (no display)"

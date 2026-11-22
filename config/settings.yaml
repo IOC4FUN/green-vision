@@ -1,0 +1,79 @@
+# ─── Green Vision Configuration ───────────────────────────────────────
+
+# Steam / Game
+steam_app_id: 940230          # Geoplanetical on Steam
+auto_launch_game: true
+launch_timeout_s: 180         # max seconds to wait for game process
+
+# Scenario (which country/role to play)
+scenario:
+  country: Germany
+  role: government            # or "opposition"
+
+# Perception
+capture_fps: 5               # frames per second to grab
+capture_region: null         # null = full screen; or [x, y, w, h]
+capture_target_size: 224    # CNN input resolution – keep 224 to match pretraining; raise only after re-pretrain
+use_ocr: true
+ocr_lang: eng
+# Game installation path (for process lookup / future direct file access)
+game_path: "F:\\SteamLibrary\\steamapps\\common\\Geoplanetical"
+
+# Brain / Training
+device: cuda                 # cuda | cpu
+learning_rate: 0.0003
+update_every_steps: 8        # PPO update frequency
+model_path: data/models/green_vision.pt
+knowledge_db: data/knowledge/db.sqlite
+
+# Decision loop
+decision_interval_s: 0.5     # 2 Hz – how often the agent makes a decision
+
+# Serper API (also in .env)
+serper_api_key: ""           # leave empty if set in .env
+
+# Reward shaping (see src/utils/reward_shaper.py)
+reward_weights:
+  approval_delta: 1.0
+  budget_health: 0.8
+  stability: 0.6
+  gdp_growth: 0.4
+  unemployment_penalty: -0.5
+  inflation_penalty: -0.3
+  war_risk: -2.0
+  noop_penalty: -0.1
+
+# PPO extras (see src/brain/ppo_agent.py PPOConfig)
+min_lr: 0.00003
+warmup_steps: 200
+total_training_steps: 200000
+entropy_coef_start: 0.05
+entropy_coef_end: 0.005
+entropy_anneal_steps: 100000
+rollout_capacity: 512
+checkpoint_every_steps: 500
+journal_path: data/journal/decisions.jsonl
+checkpoint_dir: data/models/checkpoints
+ocr_empty_threshold: 30
+mem_fail_timeout_s: 10.0
+capture_min_fps: 2.0
+
+# Input injection
+input_backend: pyautogui     # pyautogui (Win32 SendInput via ctypes)
+focus_before_input: true     # bring game window to front before each action
+console_enabled: false       # let the AI open the cheat console (backtick); OFF by default, toggle in dashboard
+idle_watchdog_s: 30          # seconds of no meaningful action before the watchdog forces a corrective move
+# Knowledge DB vectors (embedding storage)
+knowledge_vectors: data/knowledge/vectors
+# Episodic memory persistence
+episodic_memory_path: data/memory/episodes.jsonl
+# Adaptive curriculum (auto-select scenario difficulty)
+use_curriculum: false
+# Video ingestion / pretraining
+video_data_dir: data/videos
+rssm_deter: 512              # RSSM deterministic hidden dim
+rssm_stoch: 64               # RSSM stochastic latent dim
+wm_lr: 0.0003                # world-model learning rate
+keep_source_video: false     # delete .mp4 after frame extraction (saves ~90 % space)
+min_free_gb: 5.0             # refuse download if less than this much disk free
+jpeg_quality: 5              # ffmpeg -q:v for extracted frames (1=best, 31=worst; 5≈good)
