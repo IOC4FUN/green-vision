@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-22 — feat(data): expand video targets to 20 — added menu/start coverage tutorials + long livestreams for maximum frame diversity (`1e01e9d`)
 - 2026-11-22 — docs: rewrite README with full project structure, system requirements, security workflow, troubleshooting & companion docs (`b967d28`)
 - 2026-11-22 — fix: break post-commit changelog infinite loop — skip when only CHANGELOG.md changed (`7b0061c`)
 - 2026-11-22 — chore: auto-update changelog (`d958629`)

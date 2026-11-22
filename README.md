@@ -347,17 +347,74 @@ CI mirrors the first two steps automatically on every push.
 
 ---
 
+## ⚠️ Known Limitations & Caveats
+
+These are architectural constraints and known gaps in the current implementation. They don't block usage but affect performance or coverage.
+
+| Area | Limitation | Impact / Workaround |
+|------|-----------|---------------------|
+| **OCR** | Tesseract at 640×360 source resolution misses small UI labels and overlapping text. Accuracy drops on dark backgrounds. | State vector OCR segment (dims 16–31) may be sparse. Process-memory reads compensate for critical values. Future: crop+upscale before OCR, or swap to EasyOCR (`requirements.txt` has a commented line). |
+| **Process memory** | Offset-based reads depend on the game binary not changing between patches. String-scan fallback is slower (~50 ms per read cycle). | After a Steam update, offsets in `config/memory_offsets.yaml` may go stale → all memory dims return 0 until re-mapped. The agent degrades gracefully to visual-only state. |
+| **Frame rate** | Capture runs at 5 fps; PPO updates every 8 steps (≈ 4 s real-time). Fast in-game events (< 200 ms) can be missed entirely. | Acceptable for a turn-based strategy sim. Not suitable for action games without raising `capture_fps` and lowering `update_every_steps`. |
+| **Action space** | 31 discrete actions are hand-defined. The agent cannot perform free-form mouse drags, multi-key combos beyond what's listed, or interact with OS-level dialogs. | Covers ~95 % of Geoplanetical interactions. Console commands (`use_console`) unlock the rest but are disabled by default (`console_enabled: false`). |
+| **RSSM world model** | Trained separately from the policy; imagination rollouts use a frozen WM during PPO updates. Staleness grows as the policy improves. | Re-run `train_autonomous.py` cycles to refresh the WM. For short sessions (< 1 hr live play) the drift is negligible. |
+| **Video pretraining** | Stage A/B assumes 1 fps extraction. Videos with rapid scene cuts (> 1 transition/s) produce noisy boundary labels. | Pixel-diff threshold (0.05 mean abs diff on 64×64 grayscale) filters most noise, but fast-cut montages still leak. Prefer long continuous gameplay clips over edited highlights. |
+| **Reward shaping** | Hand-tuned weights in `settings.yaml`; no intrinsic reward yet (curiosity module exists but isn't wired into the PPO loss). | Agent may exploit a single high-weight metric (e.g., war_risk = −2.0 → avoids all conflict). Monitor per-segment rewards in the dashboard; rebalance if one dominates. |
+| **Single-game target** | All perception offsets, action names, and knowledge rules are Geoplanetical-specific. Porting to another game requires rewriting `state_schema.py`, `ACTION_NAMES`, `game_knowledge.py`, and memory offsets. | By design — the architecture is general, the configuration is not. |
+| **No multi-agent / multiplayer** | Single-player only. The agent cannot observe or react to other players. | Geoplanetical's AI opponents are deterministic; the agent learns against them directly. |
+| **Disk growth** | At 1 fps × 8 hr stream ≈ 28,800 frames ≈ ~3 GB per clip. The autonomous loop has a 20 GB floor but will fill a small SSD quickly. | Set `min_free_gb` higher for constrained drives; delete old clips from `data/videos/` after pretraining consumes them. |
+
+---
+
 ## 🛠️ Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| `torch.cuda.is_available()` returns False | Install CUDA 11.8+ driver; verify `nvidia-smi` works; ensure venv torch is the CUDA build (`pip install torch --index-url https://download.pytorch.org/whl/cu118`) |
-| Tesseract not found | Install from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki); default path `C:\Program Files\Tesseract-OCR` |
-| Game window not detected | Ensure Geoplanetical is running and visible; check `game_path` in `settings.yaml`; try `run_agent.bat --no-launch` to attach manually |
-| Pre-commit blocks a commit | Review the blocked paths/secrets listed in output; remove them from staging or fix the content |
-| CHANGELOG keeps growing with "auto-update" entries | The post-commit hook skips when only CHANGELOG changed — if you see duplicates, run `git log --oneline -5` and squash the noise commits |
-| Out of VRAM during training | Reduce `capture_target_size`, lower batch size in PPO config, or close other GPU workloads |
-| Disk space warning | Delete old frames in `data/videos/`; set `keep_source_video: false` (default) to auto-delete .mp4 after extraction |
+### GPU & Training
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `torch.cuda.is_available()` returns False | Wrong torch build (CPU wheel) or missing driver | `pip install torch --index-url https://download.pytorch.org/whl/cu118`; verify with `nvidia-smi` in a fresh terminal |
+| OOM during PPO update | Batch too large for VRAM, or RSSM rollout allocates extra tensors | Lower `rollout_capacity` (512→256), reduce `capture_target_size` (224→160), close browser/GPU apps |
+| Loss goes NaN after N steps | Learning rate spike or reward explosion | Check `reward_weights` for extreme values; add gradient clipping (`ppo_agent.py` → `max_grad_norm=0.5`); restart from last checkpoint |
+| Training is extremely slow (< 1 step/s) | CPU fallback active, or disk I/O bottleneck on frame loading | Confirm `device: cuda` in settings; ensure frames are on SSD; increase `num_workers` in dataloader if applicable |
+
+### Perception & Input
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Tesseract not found / OCR always empty | Binary not installed or wrong path | Install [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki); default `C:\Program Files\Tesseract-OCR`. Set `ocr_lang: eng` in config |
+| Screen capture returns black frames | Game running in exclusive fullscreen, or DRM protection | Switch game to borderless windowed mode; ensure `mss` has admin rights if the game does |
+| Process memory reads all zeros | Game patched (offsets stale) or anti-tamper active | Re-map offsets with a debugger; or rely on visual+OCR state only (agent degrades gracefully) |
+| Keyboard/mouse input not registering | Game lost focus between decisions | Ensure `focus_before_input: true`; close overlay apps (Discord, Steam overlay) that steal focus |
+| Agent stuck repeating same action | Idle watchdog not triggering, or reward plateau | Lower `idle_watchdog_s` (30→15); check entropy coefficient isn't too low (policy collapsed) |
+
+### Video Collection & Pretraining
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| yt-dlp download fails mid-stream | Network drop, YouTube rate-limit, or age-restricted video | Script retries 3× automatically. For persistent failures: run `yt-dlp --update` to get latest extractor; check `.part` files in `data/videos/downloads/` and delete them before re-running |
+| ffmpeg not found | Not installed or not in PATH | Install via `winget install Gyan.FFmpeg`; verify with `ffmpeg -version`. The collector auto-searches WinGet Packages dir as fallback |
+| Node.js error from yt-dlp (`--js-runtimes`) | yt-dlp ≥ 2025 requires a JS runtime for some extractors | Install Node.js LTS (`winget install OpenJS.NodeJS`); the script auto-detects it at `%LOCALAPPDATA%\Microsoft\WinGet\Links\node.exe` |
+| Frame extraction produces 0 frames | Codec mismatch (e.g., VP9 webm without libvpx decoder) | Ensure ffmpeg build includes libvpx/libdav1d; or force mp4 format in the yt-dlp `-f` flag (already default) |
+| Pretraining OOM on GPU | Too many concurrent frame pairs in batch | Reduce batch size in `pretrain_from_video.py` args; use bf16 (default) to halve memory |
+| `.mp4.part` file left behind | Download was interrupted (Ctrl+C, crash, disk full) | Safe to delete. Re-run the collector — it skips already-extracted clips and re-downloads missing ones |
+
+### Git & CI
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Pre-commit blocks a commit | Staged file matches a blocked path pattern or contains a secret-looking string | Read the hook output; unstage with `git reset HEAD <file>` or redact the content. `.gitkeep` files are now allowed under blocked dirs |
+| Post-commit adds duplicate CHANGELOG lines | Hook ran before the loop-guard fix (`7b0061c`) | Pull latest; the guard skips when only `CHANGELOG.md` changed. Squash old noise: `git rebase -i` → squash consecutive "auto-update" commits |
+| CI fails on syntax check | A new Python file has a syntax error | Run locally: `.venv\Scripts\python.exe -m compileall -q src scripts tools main.py`. The CI log shows the exact file + line |
+| Push rejected (non-fast-forward) | Someone/something pushed to the remote branch independently | `git pull --rebase origin master` then push again. For force-push scenarios (initial setup), use `git push --force-with-lease` |
+
+### System & Environment
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `setup_windows.bat` fails partway | Antivirus blocking venv creation, or pip timeout | Re-run; if persistent, create venv manually: `py -3.10 -m venv .venv && .venv\Scripts\pip install -r requirements.txt` |
+| E:\ drive not found / permission denied | External drive disconnected or mounted at different letter | Update all hardcoded paths in `settings.yaml`, `SESSION_BOOT.md`, and bat files; or move project to an internal SSD |
+| Steam game not at expected path | Installed on a different library folder | Edit `game_path` in `config/settings.yaml`; verify with `dir "<path>"` that the exe exists |
+| Python version mismatch after OS update | Windows Update changed default `python` alias | Always invoke via `.venv\Scripts\python.exe` explicitly (all bat files do this); avoid bare `python` calls |
 
 ---
 
