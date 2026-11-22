@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-22 — chore: auto-update changelog (`4faf3bc`)
 - 2026-11-22 — chore: auto-update changelog (`0495154`)
 - 2026-11-22 — chore: auto-update changelog (`6c94e29`)
 - 2026-11-22 — chore: auto-update changelog after initial commit (`d9b0fae`)
