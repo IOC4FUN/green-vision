@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-23 — chore: full lint cleanup + __init__ exports + f-string/import hygiene (`c5e2fda6a`)
 - 2026-11-23 — chore: full lint cleanup + integration test fixes (`1de282ee3`)
 - 2026-11-23 — fix(world_model): correct plan() tuple unpacking order; fix(knowledge_db): safe numeric trigger matching with ValueError fallback (`128ed2a98`)
 - 2026-11-23 — docs: add WORK_LOG.md — tracks all added/removed/generated files for cleanup reference (`65205174b`)

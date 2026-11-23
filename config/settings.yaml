@@ -75,3 +75,8 @@ wm_lr: 0.0003                # world-model learning rate
 keep_source_video: false     # delete .mp4 after frame extraction (saves ~90 % space)
 min_free_gb: 5.0             # refuse download if less than this much disk free
 jpeg_quality: 5              # ffmpeg -q:v for extracted frames (1=best, 31=worst; 5≈good)
+# ── Tuning knobs (read with in-code defaults; listed here so behaviour is explicit) ─
+curiosity_coeff: 0.5         # weight of curiosity bonus when both NN & WM are uncertain
+ocr_every_n_frames: 4        # run OCR / memory read every Nth frame (cache between); Tesseract is slow
+click_x: 960                 # default click target X (centre of a 1920×1080 screen)
+click_y: 540                 # default click target Y
