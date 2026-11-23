@@ -303,7 +303,7 @@ def main():
     total_frames_mb = sum(s.get("frames_mb", 0) for s in ok)
 
     print(f"\n{'═'*60}")
-    print(f"  GATHER COMPLETE")
+    print("  GATHER COMPLETE")
     print(f"{'═'*60}")
     print(f"  Videos processed : {len(ok)} ok / {len(fail)} failed")
     print(f"  Total frames     : {total_frames:,}")
@@ -312,7 +312,7 @@ def main():
     print(f"  Frames on disk   : {total_frames_mb:.1f} MB")
     print(f"  Net savings      : {max(0, total_dl_mb - total_frames_mb):.0f} MB per video cycle")
     if fail:
-        print(f"\n  Failed videos:")
+        print("\n  Failed videos:")
         for f in fail:
             print(f"    ✗ {f['title'][:50]} – {f.get('error','?')}")
     print(f"\n  Output dir: {out_dir}")

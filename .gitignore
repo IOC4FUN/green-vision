@@ -24,6 +24,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Dev scratch tools (lint/import sweeps)
+scripts/tmp/
+
 # Green Vision specific
 session_boot.py.bak
 CHANGELOG.md.bak

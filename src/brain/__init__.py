@@ -10,3 +10,17 @@ from .curiosity import CuriosityModule
 from .world_model import WorldModel
 from .rssm_world_model import RSSMWorldModel
 from .affect import AffectModule
+
+__all__ = [
+    "GreenVisionNetwork", "NUM_ACTIONS", "STATE_DIM", "SEQ_LEN", "ACTION_NAMES",
+    "PPOAgent", "PPOConfig",
+    "AutonomousPlanner", "GoalPriority",
+    "GameKnowledge", "seed_base_knowledge",
+    "EpisodicMemory", "Episode", "Outcome",
+    "ReflectionModule", "Reflection",
+    "CurriculumManager", "ScenarioConfig",
+    "CuriosityModule",
+    "WorldModel",
+    "RSSMWorldModel",
+    "AffectModule",
+]

@@ -5,7 +5,6 @@ Idempotent — skips if the exact line already exists.
 """
 from __future__ import annotations
 import datetime
-import re
 import subprocess
 import sys
 from pathlib import Path

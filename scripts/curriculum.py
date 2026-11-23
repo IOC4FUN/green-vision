@@ -5,7 +5,7 @@ Manages training stages based on agent performance metrics.
 Prevents catastrophic forgetting by gradually increasing complexity.
 """
 import logging
-from typing import Dict, List, Optional
+from typing import List
 import numpy as np
 
 log = logging.getLogger(__name__)

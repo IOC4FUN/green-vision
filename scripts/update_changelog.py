@@ -5,7 +5,6 @@ Usage: update_changelog.py <hash> <date> <subject>
 Inserts a dated entry under the '## [Unreleased]' heading. Seeds the file if it
 is missing. Never commits itself (the post-commit hook stages the result).
 """
-import os
 import sys
 
 

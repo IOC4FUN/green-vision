@@ -22,7 +22,7 @@ def print_dashboard(data: dict) -> None:
     lines = []
     lines.append("\033[2J\033[H")  # clear screen
     lines.append("┌─────────────────────────────────────────────────────┐")
-    lines.append(f"│  GREEN VISION – Agent Dashboard                      │")
+    lines.append("│  GREEN VISION – Agent Dashboard                      │")
     scenario = data.get('scenario', 'N/A')
     lines.append(f"│  Scenario: {scenario:<41} │")
     lines.append(f"│  Decisions made: {data.get('total_decisions', 0):<37} │")
