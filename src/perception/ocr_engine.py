@@ -8,8 +8,8 @@ Uses Tesseract via pytesseract. Falls back gracefully if tesseract binary
 is not installed yet.
 """
 from __future__ import annotations
-
 import logging
+import os
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -58,18 +58,45 @@ class OCREngine:
         self._lang = lang
         self._min_conf = min_confidence
         self._available = self._check_tesseract()
-        if not self._available:
+        if self._available and pytesseract is not None:
+            # Point pytesseract at the resolved binary so it works even when
+            # tesseract is not on the process PATH (e.g. fresh shell).
+            exe = self._find_tesseract()
+            if exe:
+                pytesseract.pytesseract.tesseract_cmd = exe
+        else:
             logger.warning(
                 "Tesseract binary not found. Install via: winget install UB-Mannheim.TesseractOCR "
                 "or download from https://github.com/UB-Mannheim/tesseract/wiki"
             )
 
-    @staticmethod
-    def _check_tesseract() -> bool:
+    # Known install locations checked as fallback when tesseract is not on PATH.
+    _TESSERACT_FALLBACKS = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]
+
+    @classmethod
+    def _find_tesseract(cls) -> Optional[str]:
+        """Return the path to the tesseract binary, or None."""
+        import shutil
+        found = shutil.which("tesseract")
+        if found:
+            return found
+        for p in cls._TESSERACT_FALLBACKS:
+            if os.path.isfile(p):
+                return p
+        return None
+
+    @classmethod
+    def _check_tesseract(cls) -> bool:
         try:
-            subprocess.run(["tesseract", "--version"], capture_output=True, timeout=5)
+            exe = cls._find_tesseract()
+            if exe is None:
+                return False
+            subprocess.run([exe, "--version"], capture_output=True, timeout=5)
             return True
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             return False
 
     @property

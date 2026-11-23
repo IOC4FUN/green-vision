@@ -4,6 +4,7 @@ PRETRAINING RUNNER — FINAL VERSION.
 Uses SYSTEM PYTHON (torch verified).
 ASCII ONLY output. No unicode crashes.
 """
+import os
 import subprocess
 import sys
 from pathlib import Path

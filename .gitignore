@@ -28,3 +28,6 @@ Thumbs.db
 session_boot.py.bak
 CHANGELOG.md.bak
 data/videos/
+data/journal/
+data/knowledge/*.sqlite
+data/models/*.pt
