@@ -21,7 +21,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -29,7 +29,6 @@ logger = logging.getLogger("memory.knowledge")
 
 try:
     import chromadb
-    from chromadb.utils import embedding_functions
     HAS_CHROMA = True
 except ImportError:
     HAS_CHROMA = False

@@ -32,9 +32,8 @@ Output format compatible with PPOAgent / GreenVisionNetwork:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
@@ -121,11 +120,10 @@ class VideoPretrainer:
 
         frames_list: list[np.ndarray] = []
         actions_list: list[int] = []
-
         for idx in idxs:
             sample = self._samples[idx]
-            # Build a T-frame stack ending at this transition
-            t_frames = self._build_frame_stack(sample["frame_idx"])
+            # Build a T-frame stack ending at this transition (clip-aware)
+            t_frames = self._build_frame_stack(sample)
             frames_list.append(t_frames)          # (T, 3, H, W)
             actions_list.append(sample["action"])
 
@@ -177,44 +175,34 @@ class VideoPretrainer:
                     "action": action,
                 })
 
-    def _build_frame_stack(self, end_idx: int) -> np.ndarray:
+    def _build_frame_stack(self, sample: dict) -> np.ndarray:
         """
-        Build a (T, 3, H, W) float tensor of the T most recent frames
-        ending at `end_idx`.
+        Build a (T, 3, H, W) float tensor of the T most recent frames ending at
+        this sample's transition. Frames are read from the SAME clip directory so
+        per-clip frame indices never collide across multiple ingested sources.
         """
+        clip_dir = Path(sample["clip_dir"])
+        end_idx = int(sample["frame_idx"])
         stack: list[np.ndarray] = []
         for offset in range(self.seq_len - 1, -1, -1):
             idx = max(0, end_idx - offset)
-            img = self._load_frame(idx)
-            stack.append(img)
+            stack.append(self._load_frame(clip_dir, idx))
         return np.stack(stack).astype(np.float32) / 255.0  # (T, 3, H, W)
-
-    def _load_frame(self, idx: int) -> np.ndarray:
-        """Load and resize one frame to target_size as CHW float array."""
-        # Find which clip this frame belongs to by scanning manifests
-        # (optimisation: cache per-clip frame lists – kept simple here)
-        for sample in self._samples:
-            if sample["frame_idx"] == idx:
-                fp = Path(sample["clip_dir"]) / f"frame_{idx:05d}.jpg"
-                break
-        else:
-            # Fallback: search all clip dirs
-            for cd in self.clip_dirs:
-                fp = cd / f"frame_{idx:05d}.jpg"
-                if fp.exists():
-                    break
-            else:
-                logger.warning("Frame %d not found; using black image", idx)
-                return np.zeros((self.target_size[1], self.target_size[0], 3), dtype=np.uint8)
-
+    def _load_frame(self, clip_dir: Path, idx: int) -> np.ndarray:
+        """Load and resize one frame to target_size as CHW array (H×W×3 before transpose)."""
+        h, w = self.target_size
+        fp = clip_dir / f"frame_{idx:05d}.jpg"
+        if not fp.exists():
+            logger.warning("Frame %s not found; using black image", fp.name)
+            return np.zeros((3, h, w), dtype=np.float32)
         try:
             img = Image.open(fp).convert("RGB")
-            img = img.resize(self.target_size[::-1], Image.LANCZOS)  # (W,H) → PIL wants (w,h)
-            arr = np.array(img, dtype=np.float32)  # H×W×3
-            return np.transpose(arr, (2, 0, 1))    # C×H×W
+            img = img.resize((w, h), Image.LANCZOS)  # PIL wants (w,h)
+            arr = np.array(img, dtype=np.float32)     # H×W×3
+            return np.ascontiguousarray(np.transpose(arr, (2, 0, 1)))  # C×H×W
         except Exception as e:
             logger.error("Failed to load frame %s: %s", fp, e)
-            return np.zeros((3, *self.target_size), dtype=np.float32)
+            return np.zeros((3, h, w), dtype=np.float32)
 
     @staticmethod
     def _heuristic_label(frames_data: list[dict], current_pos: int) -> int:

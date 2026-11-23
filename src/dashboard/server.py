@@ -19,11 +19,9 @@ API endpoints:
 """
 from __future__ import annotations
 import argparse
-import json
 import logging
 import sys
 import time
-import threading
 from pathlib import Path
 from typing import Any, Optional
 ROOT = Path(__file__).parent.parent.parent.resolve()
@@ -76,7 +74,7 @@ ACTION_GROUPS: dict[str, list[dict[str, str]]] = {
 }
 
 # ── Flask app factory ───────────────────────────────────────────────────────
-def create_app(agent: Optional[Any] = None) -> "Flask":
+def create_app(agent: Optional[Any] = None) -> Any:
     from flask import Flask, jsonify, request, send_from_directory
     app = Flask(
         __name__,

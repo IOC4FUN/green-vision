@@ -33,9 +33,7 @@ Usage:
 """
 from __future__ import annotations
 import logging
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
@@ -355,10 +353,6 @@ class RSSMWorldModel:
         h_t = self.gru_core(z_prev, a_enc, h_prev)
         # Posterior: q(z_t | o_t, h_t)
         mu_q, log_std_q = self.posterior(torch.cat([o_t, h_t], dim=-1))
-        # Sample z_t from posterior (reparameterisation trick)
-        std_q = torch.exp(log_std_q)
-        eps = torch.randn_like(std_q)
-        z_t = mu_q + std_q * eps
         # Decoder predictions at t+1 using prior sample
         mu_p_s = mu_p + torch.exp(log_std_p) * torch.randn_like(mu_p)
         recon_tp1, rwd_pred, cont_pred = self.decoder(h_t, mu_p_s)
@@ -413,7 +407,6 @@ class RSSMWorldModel:
         h = self._init_deter()
         z_prev = torch.zeros(1, self.stoch, device=self.device)
         for t in range(T - 1):
-            o_t = symlog(torch.from_numpy(np.asarray(obs_seq[t], dtype=np.float32)).unsqueeze(0).to(self.device))
             o_tp1 = symlog(torch.from_numpy(np.asarray(obs_seq[t + 1], dtype=np.float32)).unsqueeze(0).to(self.device))
             r_t = torch.tensor([[reward_seq[t]]], device=self.device)
             c_t = torch.tensor([[0.0 if done_flags[t] else 1.0]], device=self.device)

@@ -4,7 +4,7 @@ Exercises every module's public functions with real (GPU/CPU) data and
 asserts invariants. Exits 0 only if ALL checks pass.
 Run:  .venv-cuda/Scripts/python.exe scripts/full_integration_test.py
 """
-import sys, os, time, traceback, tempfile
+import sys, os, traceback, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
@@ -47,7 +47,7 @@ def _():
     curr["approval_rating"]=70.0
     r2=compute_reward(w, prev, curr, action_was_noop=False)
     assert isinstance(r1,float) and isinstance(r2,float)
-    wc=RewardWeights.from_config({})
+    RewardWeights.from_config({})
 
 # ── network ─────────────────────────────────────────────────────
 @check("network.forward shapes")
@@ -65,7 +65,7 @@ def _():
     cfg=PPOConfig(device=DEV, rollout_capacity=8, replay_capacity=16, batch_size=4,
                   update_every_steps=4, num_epochs_per_update=1, total_training_steps=100)
     a=PPOAgent(config=cfg)
-    f=np.random.randint(0,255,(3,64,64),dtype=np.uint8); s=np.zeros(STATE_DIM:=128,dtype=np.float32)
+    f=np.random.randint(0,255,(3,64,64),dtype=np.uint8); s=np.zeros(128,dtype=np.float32)
     for i in range(6):
         ai,lp,conf,val=a.observe_and_act(f,s,risk_scale=0.7,risky_idx=frozenset({18}))
         assert 0<=ai<31; a.store_transition(f,s,ai,0.5,False,lp,float(val.item()))
@@ -126,7 +126,7 @@ def _():
     assert 0<=eb<=0.03+1e-6, f"eb={eb}"
     assert 0.4<=rm<=1.0, f"rm={rm}"
     assert 1.0<=ug<=2.0, f"ug={ug}"
-    snap=af.snapshot(); summ=af.summary(); assert "confidence" in summ
+    af.snapshot(); summ=af.summary(); assert "confidence" in summ
 
 # ── episodic memory ─────────────────────────────────────────────
 @check("episodic_memory begin/record/end/retrieve/save")
@@ -150,7 +150,7 @@ def _():
     from src.brain.reflection import ReflectionModule
     from src.brain.episodic_memory import EpisodicMemory
     em=EpisodicMemory(); rm=ReflectionModule(memory=em)
-    summ=rm.summary(); hints=rm.get_curriculum_hints()
+    summ=rm.summary(); rm.get_curriculum_hints()
     assert isinstance(summ,dict)
 
 # ── curriculum ──────────────────────────────────────────────────
@@ -222,14 +222,14 @@ def _():
 def _():
     from src.perception.video_ingest import VideoIngestor
     with tempfile.TemporaryDirectory() as d:
-        vi=VideoIngestor(output_dir=d)
-    from src.utils.video_pretrain import __name__ as vp  # ensure importable
+        VideoIngestor(output_dir=d)
+    __import__('src.utils.video_pretrain', fromlist=['__name__'])  # noqa — verify module loads
 
 # ── virtual_input (no real input – construct + find_window) ─────
 @check("virtual_input construct + find_window graceful")
 def _():
-    from src.input.virtual_input import VirtualInputDevice, Key
-    v=VirtualInputDevice()
+    from src.input.virtual_input import VirtualInputDevice
+    VirtualInputDevice()
     hwnd=VirtualInputDevice.find_window("Geoplanetical"); assert hwnd is None or isinstance(hwnd,int)
 
 # ── game_controller construct ───────────────────────────────────
@@ -258,7 +258,7 @@ def _():
     with tempfile.TemporaryDirectory() as d:
         cm=CheckpointManager(dir_path=d)
         cm.record_reward(1.0); cm.record_reward(2.0)
-        best=cm.best_reward  # @property
+        _ = cm.best_reward  # @property — just verify it's accessible
         lst=cm.list_checkpoints(); assert isinstance(lst,list)
 
 # ── health watchdog ─────────────────────────────────────────────

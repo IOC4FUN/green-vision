@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 logger = logging.getLogger("brain.game_knowledge")
 
@@ -302,11 +302,6 @@ class GameKnowledge:
         Check whether an action is safe/appropriate given current game state
         and the sequence of recent actions.
         """
-        from .network import ACTION_NAMES
-
-        name = (ACTION_NAMES[action_idx]
-                if action_idx < len(ACTION_NAMES) else f"unknown_{action_idx}")
-
         # ── War declaration: multi-condition pre-check ─────────────
         if action_idx == A_DECLARE_WAR:
             checks: list[str] = []

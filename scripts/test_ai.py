@@ -3,7 +3,6 @@
 # Run with the CUDA venv python:
 #   E:\Green Vision\.venv-cuda\Scripts\python.exe E:/Green Vision/scripts/test_ai.py
 # ASCII ONLY output.
-import os
 import sys
 from pathlib import Path
 
@@ -113,7 +112,7 @@ def test_inference():
     try:
         sys.path.insert(0, str(project_root))
         import torch
-        from src.brain.network import CNNEncoder, STATE_DIM, NUM_ACTIONS
+        from src.brain.network import CNNEncoder
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         cnn = CNNEncoder(out_dim=512).to(device)
         print('OK CNNEncoder Created on', device)

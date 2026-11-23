@@ -15,9 +15,8 @@ from __future__ import annotations
 import logging
 import math
 import random
-import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -26,7 +25,7 @@ import torch
 import torch.nn.functional as F
 from torch.distributions import Categorical
 
-from .network import GreenVisionNetwork, NUM_ACTIONS, STATE_DIM, SEQ_LEN
+from .network import GreenVisionNetwork, SEQ_LEN
 
 logger = logging.getLogger("brain.ppo")
 
@@ -425,7 +424,6 @@ class PPOAgent:
             if len(batch) < self.cfg.batch_size // 2:
                 break
 
-            B = len(batch)
             frames = torch.stack([
                 torch.from_numpy(t.frame).float().unsqueeze(0).expand(SEQ_LEN, -1, -1, -1)
                 for t in batch
@@ -440,7 +438,6 @@ class PPOAgent:
             # ── GAE ───────────────────────────────────────────────
             with torch.no_grad():
                 _, new_values = self.net(frames, states)
-                nv_list = [float(v.item()) for v in new_values.squeeze(-1)]
                 rv_list = [float(r.item()) for r in rewards_t]
                 ov_list = [float(v.item()) for v in old_values_t]
                 dn_list = [bool(d) for d in dones_t]

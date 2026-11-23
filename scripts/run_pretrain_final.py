@@ -24,8 +24,8 @@ def run_command(cmd, desc="Running"):
 def find_torch_python():
     candidates = [
         r'C:\Users\Benny\AppData\Local\Programs\Python\Python312\python.exe',
-        'C:\Users\Benny\.venv-cuda\Scripts\python.exe',
-        '.venv-cuda\Scripts\python.exe',
+        r'E:\Green Vision\.venv-cuda\Scripts\python.exe',
+        r'.venv-cuda\Scripts\python.exe',
         'python.exe',
     ]
     for pth in candidates:
@@ -37,7 +37,7 @@ def find_torch_python():
                 result = subprocess.run([str(full_path), '-c', 'import torch; print(torch.__version__)'], capture_output=True, text=True, timeout=5)
                 if result.returncode == 0:
                     return str(full_path).strip()
-            except Exception as e:
+            except Exception:
                 pass
     return None
 

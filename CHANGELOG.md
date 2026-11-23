@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-23 — fix(world_model): correct plan() tuple unpacking order; fix(knowledge_db): safe numeric trigger matching with ValueError fallback (`128ed2a98`)
 - 2026-11-23 — docs: add WORK_LOG.md — tracks all added/removed/generated files for cleanup reference (`65205174b`)
 - 2026-11-23 — fix(ocr): add _find_tesseract() fallback + explicit pytesseract_cmd (`9bf8e1ede`)
 - 2026-11-22 — feat(pretrain): auto-stage B launcher (`9be0ce835`)

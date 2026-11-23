@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import signal
-import sys
 import threading
 import time
 from pathlib import Path
@@ -27,7 +26,7 @@ from .brain.network import NUM_ACTIONS, STATE_DIM, ACTION_NAMES
 from .brain.ppo_agent import PPOAgent, PPOConfig
 from .brain.planner import AutonomousPlanner, GoalPriority
 from .brain.game_knowledge import GameKnowledge, seed_base_knowledge, A_NAV_ECONOMY
-from .brain.episodic_memory import EpisodicMemory, Outcome
+from .brain.episodic_memory import EpisodicMemory
 from .brain.reflection import ReflectionModule
 from .brain.curriculum import CurriculumManager
 from .brain.curiosity import CuriosityModule
@@ -43,7 +42,6 @@ from .perception.ocr_engine import OCREngine
 from .perception.video_ingest import VideoIngestor
 from .utils.state_schema import MEMORY_KEYS as _MEM_KEYS, build_vector as _build_vec
 from .utils.reward_shaper import RewardWeights, compute_reward as _shaped_reward
-from .utils.video_pretrain import VideoPretrainer
 from .utils.journal import DecisionJournal
 from .utils.checkpoints import CheckpointManager
 from .utils.health import HealthWatchdog
@@ -253,8 +251,6 @@ class GreenVisionAgent:
         logger.info("Agent loop started. Decision interval: %.2fs", self._decision_interval)
         try:
             while self._running and not self._stop_event:
-                t_cycle_start = time.perf_counter()
-
                 # Check game is still alive
                 if not self.game_ctrl.is_running:
                     logger.warning("Game process lost – waiting for restart...")
@@ -299,8 +295,8 @@ class GreenVisionAgent:
                     else:
                         mem_state = self._mem_cache
 
-                # Health watchdog tick
-                health_status = self.health.tick(ocr_text=ocr_text, mem_state=mem_state or None)
+                # Health watchdog tick (side-effect: updates internal counters)
+                self.health.tick(ocr_text=ocr_text, mem_state=mem_state or None)
 
                 # Build state vector
                 self._update_state_vector(resized, ocr_text, mem_state)
@@ -508,8 +504,6 @@ class GreenVisionAgent:
           • KB hints cached (scenario rarely changes frame-to-frame).
           • Planner skipped entirely when NN confidence > 0.85.
         """
-        import torch
-        import torch.nn.functional as F
         # Normalize frame to (3, H, W) float [0,1].
         f = resized.astype(np.float32) / 255.0
         if f.ndim == 3 and f.shape[-1] == 3:
@@ -739,7 +733,6 @@ class GreenVisionAgent:
     def _learn(self, action_idx: int, reward: float) -> None:
         """Store transition, train curiosity/world-model, trigger PPO update.
         PPO training is offloaded to a background thread so it never blocks decisions."""
-        import torch
         if self._last_obs_frame is None:
             return
         log_prob = getattr(self, '_log_prob', 0.0)
@@ -769,7 +762,18 @@ class GreenVisionAgent:
                 actions_b = [t[1] for t in batch]
                 nexts_b = np.array([t[2] for t in batch], dtype=np.float32)
                 rewards_b = [t[3] for t in batch]
-                wm_metrics = self.world_model.train_step(states_b, actions_b, nexts_b, rewards_b)
+                # RSSM trains on a carried sequence; the feedforward WM takes a
+                # flat batch. Dispatch to whichever API the active model exposes.
+                if hasattr(self.world_model, "train_sequence"):
+                    obs_seq = list(states_b) + [nexts_b[-1]]
+                    act_seq = list(actions_b)
+                    rwd_seq = list(rewards_b)
+                    done_flags = [False] * len(act_seq)
+                    wm_metrics = self.world_model.train_sequence(
+                        obs_seq, act_seq, rwd_seq, done_flags)
+                else:
+                    wm_metrics = self.world_model.train_step(
+                        states_b, actions_b, nexts_b, rewards_b)
                 cur_metrics = self.curiosity.train_step(states_b, actions_b, nexts_b)
                 logger.debug("WM/curiosity train: %s | %s", wm_metrics, cur_metrics)
             except Exception as e:  # noqa: BLE001

@@ -28,7 +28,7 @@ from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import numpy as np
 # ── Imports from our codebase ────────────────────────────────────────────────
-from src.brain.network import GreenVisionNetwork, CNNEncoder, STATE_DIM, NUM_ACTIONS, SEQ_LEN
+from src.brain.network import GreenVisionNetwork, CNNEncoder, STATE_DIM, SEQ_LEN
 # ── Dataset for Stage A (reconstruction) ────────────────────────────────────
 class ReconDataset(Dataset):
     """Yields (frame_t, frame_{t+1}) pairs for CNN reconstruction."""

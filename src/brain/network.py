@@ -12,9 +12,6 @@ Training uses PPO with GAE.
 """
 from __future__ import annotations
 import logging
-import math
-from pathlib import Path
-from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

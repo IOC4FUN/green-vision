@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""
+r"""
 Auto-stage B launcher — watches for Stage A completion, then starts Stage B.
 Runs in background until Stage A checkpoint exists with sufficient size.
-Usage: C:\Users\Benny\AppData\Local\Programs\Python\Python312\python.exe scripts/auto_stage_b.py
+Usage: <venv-python> scripts/auto_stage_b.py
 MAX VRAM UTILIZATION MODE (RTX 4090 @ 24GB)
 """
 import os
+import sys
 import time
 from pathlib import Path
 PROJECT_ROOT = Path(r"E:\Green Vision")
@@ -19,7 +20,13 @@ def check_stage_a_complete():
     print(f"[CHECK] cnn_recon.pt size: {size:,} bytes ({size/1024:.1f} KB)")
     return size >= MIN_CHECKPOINT_SIZE
 def run_stage_b_max_vram():
-    python_exe = r'C:\Users\Benny\AppData\Local\Programs\Python\Python312\python.exe'
+    # Prefer the project venv; fall back to system Python.
+    candidates = [
+        str(PROJECT_ROOT / '.venv-cuda' / 'Scripts' / 'python.exe'),
+        r'C:\Users\Benny\AppData\Local\Programs\Python\Python312\python.exe',
+        sys.executable,
+    ]
+    python_exe = next((p for p in candidates if Path(p).exists()), sys.executable)
     script_path = str(PROJECT_ROOT / 'scripts' / 'pretrain_from_video.py')
     cmd = [
         python_exe,
@@ -33,7 +40,7 @@ def run_stage_b_max_vram():
     print("STAGE A COMPLETE — LAUNCHING STAGE B (MAX VRAM MODE)")
     print("="*70)
     print(f"Command: {' '.join(cmd)}")
-    os.execv(cmd[0], cmd)
+    os.execvp(cmd[0], cmd)  # replaces process; works on Windows via CreateProcess
 def main():
     print("Auto-stage B launcher started.")
     print("Waiting for Stage A checkpoint (min 50 MB)...")

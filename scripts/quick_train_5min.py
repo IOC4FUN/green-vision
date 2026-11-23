@@ -19,7 +19,7 @@ import torch
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("quick_train")
-from scripts.pretrain_from_video import stage_a_recon, ReconDataset
+from scripts.pretrain_from_video import stage_a_recon
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 if device == "cuda":

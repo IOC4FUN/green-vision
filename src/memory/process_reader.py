@@ -13,7 +13,6 @@ from __future__ import annotations
 import ctypes
 import ctypes.wintypes as w
 import logging
-import os
 import re
 import struct
 import subprocess

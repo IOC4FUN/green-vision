@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import shutil
+import numpy as np
 import subprocess
 import sys
 import time
@@ -112,8 +113,8 @@ def ppo_warmup_steps(num_updates=200) -> dict:
     """
     log.info("── Step 3/5: PPO warm-up (%d updates) ──", num_updates)
     import torch
-    from src.brain.network import GreenVisionNetwork, STATE_DIM, NUM_ACTIONS, SEQ_LEN
-    from src.brain.ppo_agent import PPOAgent, PPOConfig, Transition
+    from src.brain.network import GreenVisionNetwork, STATE_DIM
+    from src.brain.ppo_agent import PPOAgent, PPOConfig
     device = "cuda" if torch.cuda.is_available() else "cpu"
     net = GreenVisionNetwork().to(device)
     # Try loading SFT weights
@@ -137,7 +138,7 @@ def ppo_warmup_steps(num_updates=200) -> dict:
         done = False
         agent.store_transition(frame, state, action, reward, done, logits[action].item(), value.item())
         if agent.should_update():
-            metrics = agent.update()
+            agent.update()
             total_reward += reward
     elapsed = time.perf_counter() - t0
     log.info("PPO warm-up done: %d updates in %.0f s (avg reward=%.3f)", num_updates, elapsed, total_reward / max(1, num_updates))
@@ -188,7 +189,6 @@ def main():
     max_seconds = args.max_hours * 3600
     log.info("═══ Autonomous Training Loop started ═══")
     log.info("Config: cycles=%s, max_hours=%.1f, batch=%d", args.cycles or "∞", args.max_hours, args.batch_size)
-    import numpy as np  # ensure available for PPO step
     cycle = 0
     while True:
         cycle += 1
