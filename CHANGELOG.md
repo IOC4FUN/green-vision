@@ -5,6 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Entries are appended automatically by the post-commit hook under `[Unreleased]`.
 
 ## [Unreleased]
+- 2026-11-23 — docs(session_boot): point curiosity at src/brain/curiosity.py; remove dead scripts/.venv-cuda (`704bcc539`)
 - 2026-11-23 — chore: auto-update CHANGELOG (`a4bf0f2ef`)
 - 2026-11-23 — chore(config): expose tuning knobs (curiosity_coeff, ocr_every_n_frames, click_x/y) in settings.yaml (`c6b60d309`)
 - 2026-11-23 — chore: full lint cleanup + __init__ exports + f-string/import hygiene (`c5e2fda6a`)

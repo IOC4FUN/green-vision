@@ -57,21 +57,29 @@ def test_curiosity_module():
     print('GREEN VISION - CURIOSITY MODULE TEST')
     print('=' * 60)
     try:
-        sys.path.insert(0, str(script_dir))
-        import torch
-        from curiosity import CuriosityModule, CuriosityScheduler
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        cm = CuriosityModule(hidden_dim=512, device=device)
-        print('OK Module Loaded on', device)
-        obs = torch.randn(4, 32).to(device)
-        pred = torch.randn(4, 32).to(device)
-        reward = cm(obs, pred)
-        print('OK Forward Works, Reward Shape:', tuple(reward.shape))
-        sched = CuriosityScheduler(initial_weight=0.5, decay_rate=0.999)
-        w = sched.get_weight(step=100)
-        print('OK Scheduler Weight at step 100:', round(w, 4))
+        # Test the PRODUCTION ICM module (src.brain.curiosity) — the one the agent uses.
+        sys.path.insert(0, project_root)
+        import numpy as np
+        from src.brain.curiosity import CuriosityModule
+        m = CuriosityModule(state_dim=128, num_actions=31, device='cpu')
+        s0 = np.random.rand(128).astype(np.float32)
+        s1 = np.random.rand(128).astype(np.float32)
+        r = m.compute_intrinsic_reward(s0, 5, s1)
+        assert isinstance(r, float) and 0.0 <= r <= m.clip_max + 1e-6
+        print('OK Intrinsic reward:', round(r, 4))
+        B = 16
+        states = np.random.rand(B, 128).astype(np.float32)
+        nexts = np.random.rand(B, 128).astype(np.float32)
+        actions = [int(a) for a in np.random.randint(0, 31, size=B)]
+        out = m.train_step(states, actions, nexts)
+        assert np.isfinite(out['curiosity_loss'])
+        print('OK Train step loss:', round(out['curiosity_loss'], 4))
+        nov = m.novelty_score(s0)
+        assert 0.0 <= nov <= 1.0
+        print('OK Novelty score:', round(nov, 4))
         return True
     except Exception as e:
+        import traceback; traceback.print_exc()
         print('FAIL:', type(e).__name__, '-', str(e)[:300])
         return False
 
