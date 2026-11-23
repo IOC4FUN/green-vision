@@ -38,6 +38,8 @@ class _ForwardModel(nn.Module):
     """Predicts next-state embedding given current embedding + action one-hot."""
     def __init__(self, enc_dim: int = 64, num_actions: int = 31, hidden: int = 128):
         super().__init__()
+        self.enc_dim = enc_dim
+        self.n_act = num_actions
         self.net = nn.Sequential(
             nn.Linear(enc_dim + num_actions, hidden),
             nn.ReLU(),
@@ -97,8 +99,9 @@ class CuriosityModule:
         """
         s_t = torch.from_numpy(np.asarray(state_vec, dtype=np.float32)).unsqueeze(0).to(self.device)
         s_tp1 = torch.from_numpy(np.asarray(next_state_vec, dtype=np.float32)).unsqueeze(0).to(self.device)
-        onehot = torch.zeros(1, self.forward_model.net[0].in_features - 64, device=self.device)
-        onehot[0, min(action_idx, onehot.shape[1] - 1)] = 1.0
+        n_act = self.forward_model.n_act
+        onehot = torch.zeros(1, n_act, device=self.device)
+        onehot[0, min(action_idx, n_act - 1)] = 1.0
         emb_t = self.encoder(s_t)              # (1, 64)
         with torch.no_grad():
             target = self.encoder(s_tp1).detach()   # true next-state embedding
@@ -124,7 +127,7 @@ class CuriosityModule:
             return {"curiosity_loss": 0.0}
         s_t = torch.from_numpy(np.asarray(states, dtype=np.float32)).to(self.device)
         s_tp1 = torch.from_numpy(np.asarray(next_states, dtype=np.float32)).to(self.device)
-        n_act = self.forward_model.net[0].in_features - 64
+        n_act = self.forward_model.n_act
         onehots = torch.zeros(B, n_act, device=self.device)
         for i, a in enumerate(actions):
             onehots[i, min(a, n_act - 1)] = 1.0
