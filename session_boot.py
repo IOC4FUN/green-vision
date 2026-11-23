@@ -26,7 +26,7 @@ KEY_FILES = {
     "launcher":      "scripts/run_pretrain_final.py",       # Stage A entry point
     "launcher_bat":  "scripts/run_pretrain_final_v2.bat",   # double-click wrapper
     "orchestrator":  "scripts/run_training_master.py",      # two-stage pipeline controller
-    "curiosity":     "scripts/curiosity.py",                # intrinsic motivation scoring
+    "curiosity":     "src/brain/curiosity.py",               # ICM intrinsic-motivation module (used by agent)
     "curriculum":    "scripts/curriculum.py",               # difficulty-scheduled training
     "venv":          ".venv-cuda\\Scripts\\python.exe",     # torch 2.15 CUDA + deps
     "data_dir":      "data/videos/",                       # 111K extracted frames
