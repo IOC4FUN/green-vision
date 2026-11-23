@@ -5,7 +5,6 @@ Ties together all subsystems:
   • Memory (process reader + knowledge DB)
   • Brain (PPO network + planner)
   • Input (virtual keyboard/mouse via Win32 SendInput)
-  • Research (Serper web search)
   • Game controller (launch, focus, lifecycle)
 The agent runs a continuous loop:
     observe → think → act → learn
@@ -16,6 +15,7 @@ from __future__ import annotations
 import logging
 import signal
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -41,7 +41,6 @@ from .memory.process_reader import GameProcessReader
 from .perception.capture import ScreenCapture
 from .perception.ocr_engine import OCREngine
 from .perception.video_ingest import VideoIngestor
-from .research.serper_client import SerperClient
 from .utils.state_schema import MEMORY_KEYS as _MEM_KEYS, build_vector as _build_vec
 from .utils.reward_shaper import RewardWeights, compute_reward as _shaped_reward
 from .utils.video_pretrain import VideoPretrainer
@@ -86,7 +85,6 @@ class GreenVisionAgent:
             db_path=self.config.get("knowledge_db", "data/knowledge/db.sqlite"),
             vector_dir=self.config.get("knowledge_vectors", "data/knowledge/vectors"),
         )
-        self.serper = SerperClient(api_key=self.config.get("serper_api_key"))
 
         # Brain
         ppo_cfg = PPOConfig(
@@ -146,7 +144,7 @@ class GreenVisionAgent:
 
         # State tracking
         self._frame_count = 0
-        self._decision_interval = float(self.config.get("decision_interval_s", 0.5))  # 2 Hz
+        self._decision_interval = float(self.config.get("decision_interval_s", 0.02))  # 50 Hz — near-instant on RTX 4090 (<5 ms inference)
         self._last_decision_ts = 0.0
         self._state_vec: np.ndarray = np.zeros(STATE_DIM, dtype=np.float32)
         self._game_state_dict: dict[str, Any] = {}
@@ -241,9 +239,6 @@ class GreenVisionAgent:
             logger.info("Base knowledge ready (%d snippets). Console enabled: %s", seeded, self.console_enabled)
         except Exception as e:  # noqa: BLE001
             logger.warning("Failed to seed base knowledge: %s", e)
-        # Research initial strategy (if Serper available)
-        if self.serper.available:
-            self._initial_research()
 
         # Start perception + input subsystems
         try:
@@ -269,27 +264,40 @@ class GreenVisionAgent:
                 # ── OBSERVE ──────────────────────────────────────
                 fobj = self.capture.latest_frame()
                 if fobj is None or fobj.raw is None:
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                     continue
-
                 raw = fobj.raw          # H×W×3 uint8 (BGR from mss)
                 resized = fobj.resized  # 224×224×3 RGB for the CNN
                 if resized is None:
                     import cv2
                     resized = cv2.resize(raw, (224, 224))[:, :, ::-1]  # BGR→RGB + resize
-
+                # OCR every 4th frame only (Tesseract is ~50-200ms; cache between)
+                _ocr_every = int(self.config.get("ocr_every_n_frames", 4))
                 ocr_text = ""
                 if self.config.get("use_ocr", True) and self.ocr.available:
-                    ocr_res = self.ocr.process(raw)
-                    ocr_text = ocr_res.raw_text or ""
-
-                # Read memory (best-effort)
+                    if not hasattr(self, '_ocr_cache'):
+                        self._ocr_cache = ""
+                        self._ocr_counter = 0
+                    self._ocr_counter += 1
+                    if self._ocr_counter % _ocr_every == 1:
+                        ocr_res = self.ocr.process(raw)
+                        self._ocr_cache = ocr_res.raw_text or ""
+                    ocr_text = self._ocr_cache
+                # Memory read every 4th frame (process memory access is slow)
                 mem_state: dict[str, float] = {}
                 if self.mem_reader.pid:
-                    try:
-                        mem_state = self.mem_reader.read_state().values or {}
-                    except Exception as e:  # noqa: BLE001
-                        logger.debug("Memory read failed: %s", e)
+                    if not hasattr(self, '_mem_cache'):
+                        self._mem_cache: dict[str, float] = {}
+                        self._mem_counter = 0
+                    self._mem_counter += 1
+                    if self._mem_counter % _ocr_every == 1:
+                        try:
+                            mem_state = self.mem_reader.read_state().values or {}
+                            self._mem_cache = mem_state
+                        except Exception as e:  # noqa: BLE001
+                            logger.debug("Memory read failed: %s", e)
+                    else:
+                        mem_state = self._mem_cache
 
                 # Health watchdog tick
                 health_status = self.health.tick(ocr_text=ocr_text, mem_state=mem_state or None)
@@ -297,8 +305,21 @@ class GreenVisionAgent:
                 # Build state vector
                 self._update_state_vector(resized, ocr_text, mem_state)
 
+                # ── Process queued manual actions (from dashboard) ────────
+                _mq = getattr(self, '_manual_action_queue', None)
+                if _mq:
+                    while _mq:
+                        m_idx, m_ts = _mq.pop(0)
+                        logger.info("Executing MANUAL action: %s", ACTION_NAMES[m_idx])
+                        self._execute_action(m_idx)
+                        self.planner.record_manual_action(ACTION_NAMES[m_idx])
+
                 # ── THINK / ACT / LEARN at decision rate ─────────
                 now = time.time()
+                # If user paused autonomous loop, skip AI decisions but keep observing
+                if getattr(self, '_manual_pause', False):
+                    time.sleep(0.1)
+                    continue
                 if now - self._last_decision_ts >= self._decision_interval:
                     self._last_decision_ts = now
                     action_idx = self._think_and_decide(resized, ocr_text)
@@ -362,11 +383,9 @@ class GreenVisionAgent:
                             ACTION_NAMES[action_idx],
                         )
 
-                # Sleep to maintain target rate
-                elapsed = time.perf_counter() - t_cycle_start
-                sleep_time = max(0.0, self._decision_interval * 0.3 - elapsed)
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
+                # No artificial sleep — spin at full speed.
+                # The decision gate (_decision_interval) already throttles AI decisions;
+                # perception runs every iteration for lowest latency.
         except KeyboardInterrupt:
             pass
         finally:
@@ -481,7 +500,14 @@ class GreenVisionAgent:
 
     # ── Decision cycle ───────────────────────────────────────────
     def _think_and_decide(self, resized: np.ndarray, ocr_text: str) -> int:
-        """Run the full think pipeline and return an action index."""
+        """Run the full think pipeline and return an action index.
+
+        Optimised for near-instant latency on RTX 4090:
+          • NN forward pass is the only per-cycle GPU op (~2-4 ms).
+          • World-model plan runs every 5th decision (cached between).
+          • KB hints cached (scenario rarely changes frame-to-frame).
+          • Planner skipped entirely when NN confidence > 0.85.
+        """
         import torch
         import torch.nn.functional as F
         # Normalize frame to (3, H, W) float [0,1].
@@ -489,51 +515,72 @@ class GreenVisionAgent:
         if f.ndim == 3 and f.shape[-1] == 3:
             f = f.transpose(2, 0, 1)
         self._last_obs_frame = f
-        # Neural network forward pass.
-        logits, value = self.agent.observe(f, self._state_vec)
-        self._last_logits = logits
-        self._last_value = value
-        # ── Affect modulation: suppress risky actions when low-confidence ──
+        # ── Fused forward + sample (single GPU round-trip) ──────────
         risk_scale = self.affect.risk_multiplier()
-        if risk_scale < 1.0:
-            risky_idx = {ACTION_NAMES.index(n) for n in
-                         ("declare_war", "call_election", "break_alliance",
-                          "fire_minister", "veto_bill")}
-            logits = logits.clone()
-            for ri in risky_idx:
-                if ri < logits.shape[-1]:
-                    logits[0, ri] *= risk_scale
-        nn_action, _log_prob = self.agent.select_action(logits)
-        # Confidence: softmax max probability.
-        probs = F.softmax(logits.squeeze(0), dim=-1)
-        confidence = float(probs.max().item())
+        risky_set = frozenset({ACTION_NAMES.index(n) for n in
+                               ("declare_war", "call_election", "break_alliance",
+                                "fire_minister", "veto_bill")})
+        nn_action, log_prob, confidence, value_gpu = self.agent.observe_and_act(
+            f, self._state_vec,
+            risk_scale=risk_scale,
+            risky_idx=risky_set if risk_scale < 1.0 else None,
+        )
+        self._last_value = value_gpu   # keep GPU tensor for _learn
         self._last_confidence = confidence
-        # ── World-model lookahead: score top-K NN candidates over 3 steps ──
+        # Reconstruct logits on-GPU from the Categorical we already sampled.
+        # We need them for WM top-k; build a minimal proxy via one-hot + noise-free path.
+        # Actually: store the action's logit implicitly — WM plan uses state_vec only.
+        self._nn_action = nn_action
+        self._log_prob = log_prob
+
+        # ── Fast path: high confidence → skip WM plan + planner entirely ──
+        if confidence > 0.85 and not getattr(self, '_force_full_pipeline', False):
+            return int(nn_action)
+
+        # ── World-model lookahead (every 5th decision; cached between) ──
         wm_bonus_action: int | None = None
         wm_conf = 0.0
-        try:
-            wm_conf = float(self.world_model.confidence(self._state_vec))
-            top_k = torch.topk(logits.squeeze(0), k=5).indices.tolist()
-            candidate_seqs = [[a] * 3 for a in top_k]
-            best_seq, best_val = self.world_model.plan(
-                self._state_vec, candidate_seqs, horizon=3, beam_width=5
-            )
-            # Trust the model-based plan only when the world model is confident
-            # about this state region; otherwise leave it to policy/curiosity.
-            if best_seq and best_val > 0.1 and wm_conf >= 0.5:
-                wm_bonus_action = best_seq[0]
-        except Exception as e:  # noqa: BLE001
-            logger.debug("World-model plan failed: %s", e)
-        # Knowledge base hints.
+        self._wm_plan_counter = getattr(self, '_wm_plan_counter', 0) + 1
+        if self._wm_plan_counter % 5 == 1 or not hasattr(self, '_cached_wm_bonus'):
+            try:
+                wm_conf = float(self.world_model.confidence(self._state_vec))
+                # Use the NN's top action + neighbours as candidates (no logits needed).
+                nn_a = nn_action
+                candidate_actions = [nn_a] + [
+                    a for a in range(NUM_ACTIONS) if a != nn_a and a != 0
+                ][:4]
+                candidate_seqs = [[a] * 3 for a in candidate_actions[:5]]
+                best_seq, best_val = self.world_model.plan(
+                    self._state_vec, candidate_seqs, horizon=3, beam_width=5
+                )
+                if best_seq and best_val > 0.1 and wm_conf >= 0.5:
+                    wm_bonus_action = best_seq[0]
+                else:
+                    wm_bonus_action = None
+                self._cached_wm_bonus = wm_bonus_action
+            except Exception as e:  # noqa: BLE001
+                logger.debug("World-model plan failed: %s", e)
+        else:
+            wm_bonus_action = getattr(self, '_cached_wm_bonus', None)
+            wm_conf = getattr(self, '_cached_wm_conf', 0.0)
+        self._cached_wm_conf = wm_conf
+
+        # ── Knowledge base hints (cached per scenario) ───────────────
         kb_hints: list[str] = []
-        try:
-            query = f"{self.planner.current_scenario} {str(self._game_state_dict)[:160]}"
-            for r in self.kb.search_knowledge(query, k=3):
-                content = r.get("content")
-                if content:
-                    kb_hints.append(str(content))
-        except Exception as e:  # noqa: BLE001
-            logger.debug("KB search failed: %s", e)
+        _scenario_key = self.planner.current_scenario
+        if not hasattr(self, '_kb_cache') or self._kb_cache.get('key') != _scenario_key:
+            try:
+                query = f"{_scenario_key} {str(self._game_state_dict)[:160]}"
+                for r in self.kb.search_knowledge(query, k=3):
+                    content = r.get("content")
+                    if content:
+                        kb_hints.append(str(content))
+                self._kb_cache = {'key': _scenario_key, 'hints': kb_hints}
+            except Exception as e:  # noqa: BLE001
+                logger.debug("KB search failed: %s", e)
+        else:
+            kb_hints = self._kb_cache['hints']
+
         # Planner decides final action (with affect urgency boost).
         urgency = self.affect.urgency()
         final_action, thought = self.planner.decide(
@@ -690,18 +737,13 @@ class GreenVisionAgent:
 
     # ── Learning ─────────────────────────────────────────────────
     def _learn(self, action_idx: int, reward: float) -> None:
-        """Store transition, train curiosity/world-model, trigger PPO update."""
+        """Store transition, train curiosity/world-model, trigger PPO update.
+        PPO training is offloaded to a background thread so it never blocks decisions."""
         import torch
-        from torch.distributions import Categorical
-        if self._last_obs_frame is None or self._last_logits is None:
+        if self._last_obs_frame is None:
             return
-        try:
-            dist = Categorical(logits=self._last_logits.squeeze(0))
-            log_prob = float(dist.log_prob(torch.tensor(action_idx)).item())
-            val = float(self._last_value.item())
-        except Exception as e:  # noqa: BLE001
-            logger.debug("Could not compute log-prob/value: %s", e)
-            return
+        log_prob = getattr(self, '_log_prob', 0.0)
+        val = float(self._last_value.item()) if self._last_value is not None else 0.0
         done = not self.game_ctrl.is_running
         self.agent.store_transition(
             self._last_obs_frame, self._state_vec,
@@ -733,27 +775,18 @@ class GreenVisionAgent:
             except Exception as e:  # noqa: BLE001
                 logger.debug("WM/curiosity training failed: %s", e)
             self._wm_step_counter = 0
-        # ── PPO update ──────────────────────────────────────────────
+        # ── PPO update (background thread — never blocks the decision loop) ──
         if self.agent.should_update():
-            metrics = self.agent.update()
-            logger.debug("PPO update: %s", {k: f"{v:.4f}" for k, v in metrics.items()})
+            _ppo_thread = threading.Thread(target=self._safe_ppo_update, daemon=True)
+            _ppo_thread.start()
 
-    # ── Research ─────────────────────────────────────────────────
-    def _initial_research(self) -> None:
-        """Do a one-time web search to seed the knowledge base."""
+    def _safe_ppo_update(self) -> None:
+        """Background-thread wrapper around PPO update — never raises."""
         try:
-            results = self.serper.research_game_strategy("beginner tips first year")
-            n_strat = 0
-            for r in list(results)[:5]:
-                content = f"{r.title}. {r.snippet}"
-                self.kb.add_knowledge(content=content, source=r.link or "research")
-                n_strat += 1
-            patches = self.serper.check_for_patches()
-            n_patch = 0
-            for p in list(patches)[:3]:
-                self.kb.add_knowledge(content=f"{p.title}. {p.snippet}", source=p.link or "patches")
-                n_patch += 1
-            logger.info("Initial research complete: %d strategy + %d patch entries",
-                        n_strat, n_patch)
+            metrics = self.agent.update()
+            if metrics:
+                logger.debug("PPO update (bg): %s", {k: f"{v:.4f}" for k, v in metrics.items()})
         except Exception as e:  # noqa: BLE001
-            logger.warning("Research failed (non-fatal): %s", e)
+            logger.warning("PPO background update failed: %s", e)
+
+

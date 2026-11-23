@@ -29,8 +29,6 @@ knowledge_db: data/knowledge/db.sqlite
 # Decision loop
 decision_interval_s: 0.5     # 2 Hz – how often the agent makes a decision
 
-# Serper API (also in .env)
-serper_api_key: ""           # leave empty if set in .env
 
 # Reward shaping (see src/utils/reward_shaper.py)
 reward_weights:

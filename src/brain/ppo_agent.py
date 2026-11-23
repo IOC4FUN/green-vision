@@ -342,11 +342,37 @@ class PPOAgent:
     # ── Inference ────────────────────────────────────────────────
     @torch.no_grad()
     def observe(self, frame: np.ndarray, state_vec: np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass — returns GPU-resident tensors (no .cpu() sync).
+        Caller should keep everything on-device and only extract scalars at the end."""
         self.frame_history.push(frame)
         frames_seq = self.frame_history.get_stack().to(self.device)
         state_t = torch.from_numpy(state_vec).float().unsqueeze(0).to(self.device)
         logits, value = self.net(frames_seq, state_t)
-        return logits.cpu(), value.cpu()
+        return logits, value
+
+    @torch.no_grad()
+    def observe_and_act(self, frame: np.ndarray, state_vec: np.ndarray,
+                        risk_scale: float = 1.0,
+                        risky_idx: frozenset[int] | None = None
+                        ) -> tuple[int, float, float, torch.Tensor]:
+        """Fused forward + sample in one call — minimises GPU↔CPU syncs.
+        Returns (action_idx, log_prob, confidence, value_gpu)."""
+        import torch.nn.functional as F
+        self.frame_history.push(frame)
+        frames_seq = self.frame_history.get_stack().to(self.device)
+        state_t = torch.from_numpy(state_vec).float().unsqueeze(0).to(self.device)
+        logits, value = self.net(frames_seq, state_t)
+        # Affect modulation on-GPU (no clone needed if scale==1)
+        if risk_scale < 1.0 and risky_idx:
+            for ri in risky_idx:
+                if ri < logits.shape[-1]:
+                    logits[0, ri] *= risk_scale
+        dist = Categorical(logits=logits.squeeze(0))
+        action = dist.sample()
+        log_prob = dist.log_prob(action)
+        probs = F.softmax(logits.squeeze(0), dim=-1)
+        confidence = float(probs.max().item())   # single small sync
+        return int(action.item()), float(log_prob.item()), confidence, value
 
     def select_action(self, logits: torch.Tensor) -> tuple[int, float]:
         dist = Categorical(logits=logits.squeeze(0))

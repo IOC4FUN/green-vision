@@ -38,7 +38,7 @@ KEY_FILES = {
 ENV = {
     "os":            "Windows 10/11 x64",
     "gpu":           "NVIDIA RTX 4090 (24 GB VRAM)",
-    "git":           r"C:\Program Files\Git\cmd\git.exe" ("v2.56.1.windows.1"),
+    "git":           r"C:\Program Files\Git\cmd\git.exe",   # v2.56.1.windows.1
     "python_venv":   ".venv-cuda",                        # torch, opencv, yt-dlp, pyautogui, flask, gymnasium
     "model_coding":  "Qwen 3.8 27B — use for code writing & analysis",
     "model_training":"Qwen 3.5 9B  — use during long training runs",

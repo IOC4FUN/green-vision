@@ -534,6 +534,13 @@ class AutonomousPlanner:
                 return idx
         return None
 
+    # ── Manual action recording (from dashboard) ────────────────
+    def record_manual_action(self, action_name: str) -> None:
+        """Record a user-injected action in the history without incrementing decisions."""
+        ts = time.time()
+        self.action_history.append((ts, -1, f"MANUAL:{action_name}"))
+        logger.info("Manual action recorded: %s", action_name)
+
     # ── Dashboard data ───────────────────────────────────────────
     def get_dashboard_data(self) -> dict:
         abandoned_count = sum(1 for g in self.goals if g.status == "abandoned")

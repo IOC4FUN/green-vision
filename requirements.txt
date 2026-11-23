@@ -18,8 +18,6 @@ pyautogui>=0.9.54      # cross-platform keyboard/mouse via Win32 SendInput
 # Memory reading (process inspection)
 psutil>=5.9.0
 
-# Web research
-requests>=2.31.0
 
 # Config / utilities
 PyYAML>=6.0

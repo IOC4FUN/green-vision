@@ -203,21 +203,28 @@ class KnowledgeDatabase:
 
     @staticmethod
     def _triggers_match(conditions: dict, state: dict) -> bool:
-        """Simple key-value trigger matching (subset check)."""
+        """Key-value trigger matching with support for >, <, == operators."""
         for k, v in conditions.items():
             if k not in state:
                 return False
-            # Support simple comparisons like ">5", "<10", "==val"
             sv = str(state[k])
             cv = str(v)
-            if cv.startswith(">") and float(sv.replace('%','')) <= float(cv[1:].replace('%','')):
-                return False
-            elif cv.startswith("<") and float(sv.replace('%','')) >= float(cv[1:].replace('%','')):
-                return False
-            elif cv.startswith("==") and sv != cv[2:]:
-                return False
-            else:
-                if sv.lower() != cv.lower():
+            try:
+                if cv.startswith(">"):
+                    if float(sv.replace('%', '')) <= float(cv[1:].replace('%', '')):
+                        return False
+                elif cv.startswith("<"):
+                    if float(sv.replace('%', '')) >= float(cv[1:].replace('%', '')):
+                        return False
+                elif cv.startswith("=="):
+                    if sv.strip() != cv[2:].strip():
+                        return False
+                else:
+                    if sv.lower().strip() != cv.lower().strip():
+                        return False
+            except ValueError:
+                # Non-numeric value – fall back to string comparison
+                if sv.lower().strip() != cv.lower().strip():
                     return False
         return True
 

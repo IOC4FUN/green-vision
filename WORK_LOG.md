@@ -82,7 +82,6 @@ These were added in prior work and are part of the project:
 | `src/memory/process_reader.py` | Win32 ReadProcessMemory for game state |
 | `src/input/virtual_input.py` | pyautogui keyboard/mouse abstraction |
 | `src/game/game_controller.py` | Steam launch / process management |
-| `src/research/serper_client.py` | Serper API web research client |
 | `config/settings.yaml` | Main configuration file |
 
 ---

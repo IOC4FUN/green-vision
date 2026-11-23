@@ -131,7 +131,7 @@ class ScreenCapture:
                 ts = time.time()
 
                 # Resize for CNN input
-                resized = self._resize(arr)
+                resized = self._resize(arr, self._target_size)
 
                 frame = Frame(timestamp=ts, raw=arr, resized=resized)
 

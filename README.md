@@ -47,7 +47,6 @@ The agent starts by watching YouTube gameplay videos. `gather_videos.py` downloa
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  INPUT: pyautogui (Win32 SendInput) → keys + mouse to game window          │
 │  GAME CONTROLLER: Steam launch, tasklist PID poll, focus mgmt              │
-│  RESEARCH: Serper.dev web search → strategy KB (offline at inference)     │
 │  DASHBOARD: Flask :8090 live state API + terminal dashboard                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

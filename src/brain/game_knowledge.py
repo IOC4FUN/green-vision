@@ -540,7 +540,7 @@ PLAYABLE_NOTES: list[str] = [
 def seed_base_knowledge(kb) -> int:
     """
     Load stable, documented game knowledge into the KnowledgeDB so the agent
-    has a working base *before* any live Serper research succeeds.
+    has a working base before any external research is available.
     Idempotent-ish: safe to call on every startup (adds snippets; vector store
     dedupes by content in practice for our purposes).
     Returns number of snippets added.

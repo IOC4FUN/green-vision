@@ -47,10 +47,6 @@ src/
 ├── game/                 # Game lifecycle
 │   └── game_controller.py# GameController – Steam launch, tasklist PID poll, scenario rotation, window focus
 │
-├── research/             # External info gathering
-│   ├── serper_client.py  # SerperClient – Google Search API for in-game research queries
-│   └── CONTEXT.md        # Notes on research integration design
-│
 ├── gym_env/              # Gymnasium-compatible env wrapper
 │   └── geoplanetical_env.py # GeoplaneticalEnv(gym.Env) – wraps agent as RL environment
 │

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Green Vision – Learning Stats</title>
+<link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+<header>
+  <h1>🌿 Green Vision <small class="muted">· Learning Statistics</small></h1>
+  <span id="status-badge" class="badge offline">OFFLINE</span>
+  <nav class="tab-nav">
+    <a href="/" class="tab-link">Dashboard</a>
+    <a href="/stats.html" class="tab-link active">Stats</a>
+  </nav>
+  <div class="header-controls">
+    <button id="btn-pause" class="ctrl-btn warn" title="Pause autonomous loop">⏸ Pause AI</button>
+    <button id="btn-resume" class="ctrl-btn ok" title="Resume autonomous loop">▶ Resume AI</button>
+  </div>
+  <span id="clock"></span>
+</header>
+
+<main>
+  <!-- ═══ LEARNING MATURITY (composite progress bar) ═══ -->
+  <section class="row">
+    <div class="card maturity-panel">
+      <h3>🧬 Learning Maturity <small>— composite score of what the agent has learned over time</small></h3>
+      <div class="maturity-overall">
+        <div class="maturity-score-big" id="mat-overall">0%</div>
+        <div style="flex:1">
+          <div class="maturity-label" id="mat-stage-label">Initialising…</div>
+          <div class="maturity-bar-track"><div id="mat-overall-bar" class="maturity-bar-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="maturity-sub-grid">
+        <div class="maturity-sub-item">
+          <div class="maturity-sub-header">
+            <span class="maturity-sub-label">Reward Trend</span>
+            <span class="maturity-sub-score" id="mat-trend-score">—</span>
+          </div>
+          <div class="bar-track"><div id="mat-trend-bar" class="bar-fill success-bar" style="width:0%"></div></div>
+          <p class="muted" style="font-size:0.72rem;margin-top:4px" id="mat-trend-note">First ¼ vs last ¼ of reward window</p>
+        </div>
+        <div class="maturity-sub-item">
+          <div class="maturity-sub-header">
+            <span class="maturity-sub-label">Consistency</span>
+            <span class="maturity-sub-score" id="mat-consist-score">—</span>
+          </div>
+          <div class="bar-track"><div id="mat-consist-bar" class="bar-fill stall-bar" style="width:0%"></div></div>
+          <p class="muted" style="font-size:0.72rem;margin-top:4px" id="mat-consist-note">Low variance = stable policy</p>
+        </div>
+        <div class="maturity-sub-item">
+          <div class="maturity-sub-header">
+            <span class="maturity-sub-label">Action Breadth</span>
+            <span class="maturity-sub-score" id="mat-breadth-score">—</span>
+          </div>
+          <div class="bar-track"><div id="mat-breadth-bar" class="bar-fill action-bar" style="width:0%"></div></div>
+          <p class="muted" style="font-size:0.72rem;margin-top:4px" id="mat-breadth-note">Unique actions used / 31 total</p>
+        </div>
+        <div class="maturity-sub-item">
+          <div class="maturity-sub-header">
+            <span class="maturity-sub-label">Episode Success</span>
+            <span class="maturity-sub-score" id="mat-success-score">—</span>
+          </div>
+          <div class="bar-track"><div id="mat-success-bar" class="bar-fill success-bar" style="width:0%"></div></div>
+          <p class="muted" style="font-size:0.72rem;margin-top:4px" id="mat-success-note">% of episodes classified as success</p>
+        </div>
+        <div class="maturity-sub-item">
+          <div class="maturity-sub-header">
+            <span class="maturity-sub-label">Exploration Decay</span>
+            <span class="maturity-sub-score" id="mat-explore-score">—</span>
+          </div>
+          <div class="bar-track"><div id="mat-explore-bar" class="bar-fill stall-bar" style="width:0%"></div></div>
+          <p class="muted" style="font-size:0.72rem;margin-top:4px" id="mat-explore-note">Intrinsic reward should fall as the world is mapped</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Summary cards -->
+  <section class="row top-row">
+    <div class="card stat-card">
+      <label>Total Decisions</label>
+      <div id="stat-decisions" class="stat-value accent">0</div>
+    </div>
+    <div class="card stat-card">
+      <label>Best Avg Reward</label>
+      <div id="stat-best-reward" class="stat-value">—</div>
+    </div>
+    <div class="card stat-card">
+      <label>Current Avg Reward</label>
+      <div id="stat-cur-avg-reward" class="stat-value info">—</div>
+    </div>
+    <div class="card stat-card">
+      <label>Episodes Logged</label>
+      <div id="stat-episodes" class="stat-value info">0</div>
+    </div>
+    <div class="card stat-card">
+      <label>Goals Done / Abandoned</label>
+      <div id="stat-goals-done" class="stat-value accent">0/0</div>
+    </div>
+    <div class="card stat-card">
+      <label>Checkpoints</label>
+      <div id="stat-checkpoints" class="stat-value">0</div>
+    </div>
+  </section>
+
+  <!-- Reward chart -->
+  <section class="row">
+    <div class="card full-width">
+      <h3>📈 Reward Over Time <small>(rolling window of last 200 steps)</small></h3>
+      <canvas id="reward-chart" width="960" height="220"></canvas>
+      <p class="muted chart-caption" id="reward-caption">Waiting for data…</p>
+    </div>
+  </section>
+
+  <!-- Episode outcomes + Curiosity side by side -->
+  <section class="row mid-row">
+    <div class="card">
+      <h3>🎬 Episode Outcomes</h3>
+      <div class="outcome-bars">
+        <div class="outcome-row">
+          <span class="outcome-label success">Success</span>
+          <div class="bar-track"><div id="bar-success" class="bar-fill success-bar"></div></div>
+          <span id="count-success" class="bar-count">0</span>
+        </div>
+        <div class="outcome-row">
+          <span class="outcome-label stall">Stall</span>
+          <div class="bar-track"><div id="bar-stall" class="bar-fill stall-bar"></div></div>
+          <span id="count-stall" class="bar-count">0</span>
+        </div>
+        <div class="outcome-row">
+          <span class="outcome-label failure">Failure</span>
+          <div class="bar-track"><div id="bar-failure" class="bar-fill failure-bar"></div></div>
+          <span id="count-failure" class="bar-count">0</span>
+        </div>
+      </div>
+      <table class="mini-table" id="episode-avg-table">
+        <thead><tr><th>Outcome</th><th>Avg Reward</th><th>Count</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>🔍 Curiosity (ICM)</h3>
+      <div class="kv-grid">
+        <div class="kv-item"><span class="kv-label">Total Intrinsic Reward</span><b id="cur-total">—</b></div>
+        <div class="kv-item"><span class="kv-label">Steps Explored</span><b id="cur-steps">—</b></div>
+        <div class="kv-item"><span class="kv-label">Avg Intrinsic / Step</span><b id="cur-avg">—</b></div>
+        <div class="kv-item"><span class="kv-label">Exploration Phase</span><b id="cur-phase">—</b></div>
+      </div>
+      <p class="muted" style="margin-top:12px;font-size:0.8rem;">Intrinsic reward drives exploration — it should decrease as the agent maps the game world.</p>
+    </div>
+  </section>
+
+  <!-- PPO internals + Action distribution -->
+  <section class="row mid-row">
+    <div class="card">
+      <h3>🧠 PPO Training State</h3>
+      <div class="kv-grid">
+        <div class="kv-item"><span class="kv-label">Device</span><b id="ppo-device">—</b></div>
+        <div class="kv-item"><span class="kv-label">Rollout Buffer</span><b id="ppo-rollout">—</b></div>
+        <div class="kv-item"><span class="kv-label">Replay Buffer (PER)</span><b id="ppo-replay">—</b></div>
+        <div class="kv-item"><span class="kv-label">Update Every N Steps</span><b id="ppo-update-every">—</b></div>
+        <div class="kv-item"><span class="kv-label">Batch Size</span><b id="ppo-batch">—</b></div>
+        <div class="kv-item"><span class="kv-label">Policy Loss (last)</span><b id="ppo-policy-loss">—</b></div>
+        <div class="kv-item"><span class="kv-label">Value Loss (last)</span><b id="ppo-value-loss">—</b></div>
+        <div class="kv-item"><span class="kv-label">Entropy (last)</span><b id="ppo-entropy">—</b></div>
+        <div class="kv-item"><span class="kv-label">KL Divergence (last)</span><b id="ppo-kl">—</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🎯 Action Distribution <small>(top 10 by frequency)</small></h3>
+      <ul id="action-dist-list" class="action-dist-list">
+        <li class="muted">No actions yet</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- State vector + Health + Checkpoints -->
+  <section class="row mid-row">
+    <div class="card">
+      <h3>📐 State Vector</h3>
+      <div class="kv-grid">
+        <div class="kv-item"><span class="kv-label">Dimension</span><b id="state-dim">—</b></div>
+        <div class="kv-item"><span class="kv-label">Current Norm</span><b id="state-norm-val">—</b></div>
+        <div class="kv-item"><span class="kv-label">Data Quality</span><b id="state-quality">—</b></div>
+      </div>
+      <p class="muted" style="margin-top:12px;font-size:0.8rem;">Norm grows as OCR + memory reader populate the 128-dim state. A norm of 0 means no game data is being read.</p>
+    </div>
+
+    <div class="card">
+      <h3>💚 Subsystem Health Config</h3>
+      <div class="kv-grid">
+        <div class="kv-item"><span class="kv-label">OCR Empty Threshold</span><b id="hw-ocr-thresh">—</b></div>
+        <div class="kv-item"><span class="kv-label">Mem Fail Timeout (s)</span><b id="hw-mem-timeout">—</b></div>
+        <div class="kv-item"><span class="kv-label">Min Capture FPS</span><b id="hw-min-fps">—</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💾 Checkpoints</h3>
+      <ul id="ckpt-list" class="action-dist-list" style="max-height:160px">
+        <li class="muted">None yet</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Polling every 5 s · Green Vision v1.2 · <a href="/" target="_blank">Dashboard</a> · <a href="/api/stats" target="_blank">Raw JSON</a></span>
+</footer>
+<script src="/stats.js"></script>
+</body>
+</html>

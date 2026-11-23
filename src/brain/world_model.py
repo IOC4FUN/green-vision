@@ -174,7 +174,7 @@ class WorldModel:
                 discount *= self.gamma
             scored.append((total_val, seq))
         scored.sort(key=lambda x: x[0], reverse=True)
-        best_seq, best_val = scored[0]
+        best_val, best_seq = scored[0]
         return best_seq, best_val
     @torch.no_grad()
     def predict_next_state(self, state_vec: np.ndarray, action_idx: int) -> np.ndarray:

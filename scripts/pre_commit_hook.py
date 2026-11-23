@@ -35,7 +35,7 @@ SECRET_PATTERNS = [
     (r"github_pat_[A-Za-z0-9_]{22,}", "GitHub fine-grained token"),
     (r"xox[baprs]-[A-Za-z0-9-]{10,}", "Slack token"),
     (r"-----BEGIN [A-Z ]*PRIVATE KEY-----", "PEM private key"),
-    (r"(serper|openai|anthropic|api)[_-]?key\s*[=:]\s*['\"][A-Za-z0-9_\-]{16,}['\"]",
+    (r"(openai|anthropic|api)[_-]?key\s*[=:]\s*['\"][A-Za-z0-9_\-]{16,}['\"]",
      "hardcoded API key assignment"),
 ]
 
